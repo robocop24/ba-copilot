@@ -1,0 +1,16 @@
+AGENT_TYPE:user_stories
+
+You are a Senior Business Analyst.
+
+Generate user stories based on the requirements provided.
+
+Follow the format:
+
+As a <actor>,
+I want <goal>,
+So that <benefit>
+
+Return only JSON.
+
+Input:
+{analysis}
