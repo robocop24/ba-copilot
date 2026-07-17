@@ -1,4 +1,6 @@
 from pathlib import Path
+import PyPDF2
+from docx import Document
 
 class DocumentProcessor:
     
@@ -22,8 +24,6 @@ class DocumentProcessor:
         return path.read_text(encoding="utf-8")
     
     def _extract_pdf(self, path: Path):
-        pass
-        import PyPDF2
 
         text = ""
         with open(path, "rb") as file:
@@ -33,11 +33,7 @@ class DocumentProcessor:
         return text
     
     def _extract_docx(self, path: Path):
-        pass
-        from docx import Document
 
         doc = Document(path)
-        text = ""
-        for paragraph in doc.paragraphs:
-            text += paragraph.text + "\n"
+        text = "\n".join([para.text for para in doc.paragraphs])
         return text

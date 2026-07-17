@@ -2,7 +2,7 @@
 
 ## Overview
 
-BA Copilot is a multi-agent AI system that automates common Business Analyst activities from a requirement document.
+BA Copilot is a multi-agent AI system that automates Business Analyst activities from a requirement document.
 
 The system converts business requirements into structured BA deliverables such as:
 
@@ -64,6 +64,10 @@ Evaluates generated BA artifacts and identifies improvement opportunities.
 
 Uses review feedback to recommend report improvements.
 
+### Streamlit UI
+
+A simple Streamlit frontend is available in `app.py`.
+
 ---
 
 ## Architecture
@@ -85,84 +89,65 @@ Requirement
 ## Project Structure
 
 ```text
-ba-agent/
+BA_Copilot/
 │
 ├── agents/
-│
 ├── core/
-│
 ├── document/
-│
 ├── prompts/
-│
 ├── workflow/
-│
 ├── outputs/
-│
-└── main.py
+├── app.py
+├── main.py
+└── README.md
 ```
 
 ---
 
-## Key Design Concepts
+## Setup
 
-### Workflow Orchestrator
+Recommended: Python 3.11+.
 
-Coordinates agent execution.
+1. Create and activate a virtual environment:
 
-### Workflow State
+```powershell
+python -m venv venv
+venv\Scripts\Activate.ps1
+```
 
-Maintains application state between agents.
+2. Install required packages:
 
-### Base Agent
-
-Reusable parent class for all agents.
-
-### Provider Factory
-
-Centralized provider selection.
-
-### Document Processor
-
-Supports requirement ingestion.
+```powershell
+pip install -r requirements.txt
+```
 
 ---
 
-## Technologies
+## Run
 
-- Python
-- JSON
-- Agentic Workflow Design
-- Prompt Engineering
-- Workflow Orchestration
-- State Management
+### Backend only
 
----
+```powershell
+python main.py
+```
 
-## Future Enhancements
+This generates `outputs/ba_report.json` from `samples/requirement.txt`.
 
-- Real LLM Integration
-- OpenAI Agent SDK Integration
-- LangGraph Version
-- PDF Support
-- DOCX Support
-- Streamlit UI
-- RAG Integration
-- Vector Database Support
+### Streamlit UI
+
+```powershell
+streamlit run app.py
+```
+
+The UI loads the same workflow state and displays the generated BA report.
 
 ---
 
-## Sample Output
+## Notes
 
-The system generates a structured BA report containing:
-
-- Analysis
-- Stories
-- Acceptance Criteria
-- Gap Analysis
-- Effort Estimation
-- Review
-- Refinement
+- The default input file is `samples/requirement.txt`.
+- Update `main.py` or `build_state()` if you want to use a different source file.
+- `app.py` imports `build_state()` from `main.py` so the UI and backend share the same workflow logic.
 
 ---
 
