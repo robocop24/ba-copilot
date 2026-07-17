@@ -68,6 +68,8 @@ Uses review feedback to recommend report improvements.
 
 A simple Streamlit frontend is available in `app.py`.
 
+![BA Copilot Demo](demo.png)
+
 ---
 
 ## Architecture
