@@ -1,0 +1,40 @@
+from graph import graph
+from langgraph.types import Command
+
+def main():
+
+    config={
+            "configurable":{
+                "thread_id":"portal_project"
+            }
+        }
+
+    # Stream events to catch interrupts
+    print("Starting workflow...")
+    for event in graph.stream({
+        "requirement":"Build customer portal"
+        }, config=config):
+        print(f"\nEvent: {event}")
+    
+    # Check if workflow was interrupted
+    state = graph.get_state(config)
+    print(f"\nCurrent state after stream: {state}")
+    
+    # If interrupted, show the approval prompt and resume
+    if state.next:
+        print(f"\nInterrupt detected. Nodes pending: {state.next}")
+        user_input = input("Approve BA Report? (yes/no): ").lower()
+        approval = user_input == "yes"
+        print(f"User approval: {approval}")
+        
+        # Resume with approval decision
+        result = graph.invoke(Command(resume=approval), config=config)
+        print(f"\nResumed workflow result: {result}")
+    
+    print("\nRESULT")
+    print("="*50)
+    final_state = graph.get_state(config)
+    print(final_state.values)
+
+if __name__ == "__main__":
+    main()

@@ -1,8 +1,10 @@
-__pycache__/
-*.py[cod]
-*.log
-.env
-.venv/
-venv/
-.idea/
+# Python cache / virtualenvs
+**/__pycache__/
+**/.venv/
+**/*.py[cod]
+**/.pytest_cache/
+
+# General editor noise
 .vscode/
+.idea/
+.DS_Store
