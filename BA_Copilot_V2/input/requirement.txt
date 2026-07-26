@@ -1,0 +1,6 @@
+Build a customer portal where users can:
+
+- Register
+- Login
+- View Orders
+- Download Invoices

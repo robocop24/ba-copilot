@@ -3,8 +3,9 @@ from models.analysis import (AnalysisOutput)
 from models.stories import (StoriesOutput)
 from models.review import (ReviewOutput)
 from models.refinement import (RefinementOutput)
+from models.gaps import (GapAnalysisOutput)
 
-class BAState(TypedDict):
+class BAState(TypedDict, total=False):
 
     requirement: str
 
@@ -13,9 +14,13 @@ class BAState(TypedDict):
     analysis: AnalysisOutput
 
     stories: StoriesOutput
+    
+    gaps: GapAnalysisOutput
+    
+    review_context: str
 
     review: ReviewOutput
 
     refinement: RefinementOutput
     
-    approved: bool|None
+    approved: bool

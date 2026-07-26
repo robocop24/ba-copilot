@@ -1,8 +1,11 @@
 from graph import graph
 from langgraph.types import Command
+from document.document_processor import DocumentProcessor
 
 def main():
-
+    
+    processor = DocumentProcessor()
+    requirement = processor.extract_text("input/requirement.txt")
     config={
             "configurable":{
                 "thread_id":"portal_project"
@@ -12,7 +15,7 @@ def main():
     # Stream events to catch interrupts
     print("Starting workflow...")
     for event in graph.stream({
-        "requirement":"Build customer portal"
+        "requirement": requirement
         }, config=config):
         print(f"\nEvent: {event}")
     
@@ -35,6 +38,8 @@ def main():
     print("="*50)
     final_state = graph.get_state(config)
     print(final_state.values)
+    
+    graph.get_graph().draw_mermaid()
 
 if __name__ == "__main__":
     main()

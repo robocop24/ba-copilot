@@ -1,0 +1,13 @@
+Analyze the requirement and extract:
+
+1. Actors
+2. Modules
+3. Functional Requirements
+
+Return only valid JSON.
+
+Requirement:
+{requirement}
+
+Context:
+{context}
