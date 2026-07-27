@@ -24,3 +24,7 @@ class BAState(TypedDict, total=False):
     refinement: RefinementOutput
     
     approved: bool
+    
+    iteration: int          
+    
+    max_iterations: int 

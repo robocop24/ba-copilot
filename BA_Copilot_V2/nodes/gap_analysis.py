@@ -2,6 +2,7 @@ from models.gaps import GapAnalysisOutput
 from llm.provider_factory import ProviderFactory
 from utils.prompt_loader import load_prompt
 from pydantic import ValidationError
+from utils.json_parser import parse_llm_json
 
 def gap_analysis_node(state):
     
@@ -12,7 +13,9 @@ def gap_analysis_node(state):
     prompt = prompt_template.format(analysis=state["analysis"])
     
     try:
-        gaps = structured_llm.invoke(prompt)
+        response = llm.invoke(prompt)
+        data = parse_llm_json(response.content)
+        gaps = GapAnalysisOutput(**data)
         return {"gaps":gaps}
     except ValidationError as e:
             print(f"Validation error in analyzer: {e}")

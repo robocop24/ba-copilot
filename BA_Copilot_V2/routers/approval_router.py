@@ -1,10 +1,12 @@
-from langgraph.graph import END
-
 def approval_router(state):
     
-    approved = state["approved"]
+    approved = state.get("approved", False)
     
     if approved:
-        return "refinement_output"
+        return "end"
     
-    return END
+    if state.get("iteration", 0) >= state.get("max_iterations", 3):
+        print("⚠️ Max refinement iterations reached. Ending workflow.")
+        return "end"
+    
+    return "refine"

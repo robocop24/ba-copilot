@@ -1,4 +1,14 @@
-langgraph>=0.2,<0.3
+# Core graph framework
+langgraph>=0.2.60,<0.4
+langgraph-checkpoint>=2.0.10,<3.0
+langgraph-checkpoint-sqlite>=2.0.3,<3.0
+
+# LLM provider (DeepSeek via OpenAI-compatible API)
+langchain-openai>=0.2,<0.3
 langchain-core>=0.3,<0.4
+
+# Data validation
 pydantic>=2,<3
+
+# Environment variables
 python-dotenv>=1.0,<2.0

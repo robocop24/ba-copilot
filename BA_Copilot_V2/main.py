@@ -39,7 +39,7 @@ def main():
     final_state = graph.get_state(config)
     print(final_state.values)
     
-    graph.get_graph().draw_mermaid()
+    graph.get_graph().draw_mermaid_png(output_file_path="ba_copilot_graph.png")
 
 if __name__ == "__main__":
     main()

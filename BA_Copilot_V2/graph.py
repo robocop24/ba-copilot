@@ -1,7 +1,14 @@
 import sqlite3
 
-from langgraph.graph import StateGraph, START
+from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.sqlite import SqliteSaver
+# Monkey-patch JsonPlusSerializer to add missing dumps method
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+if not hasattr(JsonPlusSerializer, 'dumps'):
+    def _dumps(self, obj):
+        result = self.dumps_typed(obj)
+        return result[0] if isinstance(result, tuple) else result
+    JsonPlusSerializer.dumps = _dumps
 from state import BAState
 from nodes.retriever import retriever_node
 from nodes.analyzer import analyzer_node
@@ -34,6 +41,10 @@ builder.add_edge('build_stories', 'prepare_review')
 builder.add_edge('gap_analysis', 'prepare_review')
 builder.add_edge('prepare_review', 'review_output')
 builder.add_edge('review_output', 'approval')
-builder.add_conditional_edges('approval',approval_router)
+builder.add_conditional_edges('approval',approval_router,
+    {'end':END,"refine":'refinement_output'}
+)
+# Refinement loops back to prepare_review (or review_output)
+builder.add_edge('refinement_output', 'prepare_review')
 
 graph = builder.compile(checkpointer=checkpointer)

@@ -3,6 +3,7 @@ from pydantic import ValidationError
 from llm.provider_factory import ProviderFactory
 from utils.prompt_loader import load_prompt
 from state import BAState
+from utils.json_parser import parse_llm_json
 
 def analyzer_node(state: BAState) -> dict:
     
@@ -16,8 +17,9 @@ def analyzer_node(state: BAState) -> dict:
     )
 
     try:
-        analysis = structured_llm.invoke(prompt)
-        
+        response = llm.invoke(prompt)
+        data = parse_llm_json(response.content)
+        analysis = AnalysisOutput(**data)
         return {
                 "analysis": analysis
             }

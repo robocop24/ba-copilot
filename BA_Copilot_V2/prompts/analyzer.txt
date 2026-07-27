@@ -1,13 +1,10 @@
-Analyze the requirement and extract:
 
-1. Actors
-2. Modules
-3. Functional Requirements
-
-Return only valid JSON.
+Analyze this requirement and output a JSON object with the keys "actors", "modules", "requirements".
 
 Requirement:
 {requirement}
 
 Context:
 {context}
+
+Output ONLY the JSON object. No other text.

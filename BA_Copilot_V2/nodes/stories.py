@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from llm.provider_factory import ProviderFactory
 from utils.prompt_loader import load_prompt
 from state import BAState
+from utils.json_parser import parse_llm_json
 
 def stories_node(state: BAState) -> dict:
     
@@ -13,7 +14,9 @@ def stories_node(state: BAState) -> dict:
     prompt = prompt_template.format(analysis=state["analysis"])
 
     try:
-        stories = structured_llm.invoke(prompt)
+        response = llm.invoke(prompt)
+        data = parse_llm_json(response.content)
+        stories = StoriesOutput(**data)
         return {
                 "stories": stories
             }

@@ -1,9 +1,18 @@
-AGENT_TYPE:user_stories
+You are a business analyst expert. Based on the following analysis, generate detailed user stories.
 
-You are a Senior Business Analyst.
+Analysis:
+- Actors: {analysis.actors}
+- Modules: {analysis.modules}
+- Requirements: {analysis.requirements}
 
-Generate user stories based on the requirements provided.
+Generate user stories in the standard format: "As a [actor], I want [feature] so that [benefit]".
+Include acceptance criteria for each story where applicable.
 
-{analysis}
-
-Return structured output.
+Return ONLY a valid JSON object in this exact structure:
+```json
+{{
+    "user_stories": [
+        "As a [actor], I want to [action] so that [benefit]",
+        ...
+    ]
+}}
