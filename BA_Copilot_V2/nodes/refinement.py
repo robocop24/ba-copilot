@@ -22,8 +22,8 @@ def refinement_node(state):
         response = llm.invoke(prompt)
         data = parse_llm_json(response.content, default=fallback)
         refinement = RefinementOutput(**data)
-        return {"refinement": refinement, "iteration": state["iteration"] + 1}
+        return {"refinement": refinement, "iteration": state.get("iteration", 0) + 1}
     except Exception as e:
         print(f"Error in refinement_node: {e}")
         refinement = RefinementOutput(**fallback)
-        return {"refinement": refinement, "iteration": state["iteration"] + 1}
+        return {"refinement": refinement, "iteration": state.get("iteration", 0) + 1}

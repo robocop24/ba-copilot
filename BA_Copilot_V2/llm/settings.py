@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "deepseek")
 MODEL_NAME = os.getenv("MODEL_NAME", "deepseek-chat")

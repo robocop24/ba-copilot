@@ -15,7 +15,9 @@ def main():
     # Stream events to catch interrupts
     print("Starting workflow...")
     for event in graph.stream({
-        "requirement": requirement
+        "requirement": requirement,
+        "iteration": 0,
+        "max_iterations": 3
         }, config=config):
         print(f"\nEvent: {event}")
     

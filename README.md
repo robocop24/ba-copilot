@@ -1,42 +1,48 @@
-# BA Copilot - Agentic AI Business Analyst Assistant
+# BA Copilot — Agentic AI Business Analyst Assistant
 
-A multi-agent AI system that automates Business Analyst activities, converting requirements into structured BA deliverables.
+**BA Copilot** is a multi-agent AI system that automates the full Business Analyst workflow. It ingests raw requirement documents (`.txt`, `.pdf`, `.docx`) and produces structured BA deliverables — analysis, user stories, acceptance criteria, gap analysis, effort estimation, quality review, and refinements.
 
-## 📋 Project Overview
+> Two implementations are provided: **V1** (stable, custom orchestration + Streamlit UI) and **V2** (LangGraph‑based with human‑in‑the‑loop approval and SQLite checkpointing).
 
-BA Copilot generates:
+---
 
-- **Functional Requirements** — extracted from raw requirements
-- **User Stories** — in standardized As-a/I-want/So-that format
-- **Acceptance Criteria** — Given-When-Then scenarios
-- **Gap Analysis** — identifies missing information, ambiguities, risks
-- **Effort Estimation** — complexity, story points, effort breakdown
-- **Quality Review** — evaluates generated artifacts for improvement
-- **Refinement Recommendations** — uses review feedback to enhance deliverables
-- **Human Approval Workflow** — LangGraph V2 supports human-in-the-loop interrupts
+## 🧠 What It Produces
+
+| Artifact | Description |
+|---|---|
+| **Analysis** | Actors, modules, and functional requirements extracted from raw input |
+| **User Stories** | Standardized "As a … I want … so that …" format |
+| **Acceptance Criteria** | Given‑When‑Then scenarios for each story |
+| **Gap Analysis** | Missing information, ambiguities, edge cases, and clarification questions |
+| **Effort Estimation** | Complexity, story points, estimated days, assumptions, and risks |
+| **Quality Review** | 1–10 score with strengths, weaknesses, and recommendations |
+| **Refinement** | Revised stories and a summary of changes based on review feedback |
+| **Human Approval** | V2 pauses the graph for manual approve/refine decision (with iteration cap) |
 
 ---
 
 ## 🎯 Quick Start
 
-### For End-Users: Run V1 (Stable)
+### V1 — Stable (Custom Orchestration + Streamlit UI)
 
 ```bash
 cd BA_Copilot_V1
 python -m venv .venv
-.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-python main.py
+.venv\Scripts\Activate.ps1          # Windows
+pip install -r requirements.txt
+python main.py                      # CLI – writes outputs/ba_report.json
+streamlit run app.py                # Browser UI
 ```
 
-### For Development: Run V2 (LangGraph + Checkpoints)
+### V2 — LangGraph (Human‑in‑the‑Loop + Checkpoints)
 
 ```bash
 cd BA_Copilot_V2
 python -m venv .venv
-.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-python main.py
+.venv\Scripts\Activate.ps1          # Windows
+pip install -r requirements.txt
+cp .env.example .env                # then add your DEEPSEEK_API_KEY
+python main.py                      # interactive approval prompt
 ```
 
 ---
@@ -44,57 +50,86 @@ python main.py
 ## 📦 Version Comparison
 
 | Feature | V1 | V2 |
-|---------|----|----|
-| **Framework** | Custom Orchestration | LangGraph |
-| **State Management** | In-memory | TypedDict + Checkpointing |
-| **Persistence** | JSON output only | SQLite checkpoints |
-| **Human Approval** | Planned | ✅ Implemented with interrupts |
-| **Resumable Workflows** | No | ✅ Yes (with thread IDs) |
-| **Status** | Stable | Development |
+|---|---|---|
+| **Framework** | Custom sequential pipeline | LangGraph `StateGraph` |
+| **LLM Backend** | Mock provider (deterministic) | DeepSeek via OpenAI‑compatible API |
+| **Parallelism** | ❌ Sequential only | ✅ Stories + Gap Analysis run in parallel |
+| **State** | Plain `WorkflowState` class | Typed `BAState` (TypedDict) |
+| **Persistence** | JSON file (`outputs/ba_report.json`) | SQLite checkpointing (`ba_copilot.db`) |
+| **Human‑in‑the‑Loop** | ❌ Not implemented | ✅ `interrupt()` with approve/refine loop |
+| **Resumable** | ❌ No | ✅ Thread‑ID‑based resume |
+| **UI** | Streamlit (`app.py`) | CLI only |
+| **Status** | ✅ Stable | 🚧 Active Development |
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Architecture at a Glance
 
-### V1 — Custom Orchestration
-- Sequential workflow orchestrated in `workflow/orchestrator.py`
-- Direct agent-to-agent flow
-- Outputs stored as JSON
+### V1 — Linear Agent Pipeline
 
-### V2 — LangGraph Framework
-- **Graph-based workflow** with typed state (`BAState`)
-- **Checkpoint persistence** for resumable executions
-- **Router-based conditionals** for approval workflow
-- **Human-in-the-loop** approval node with `interrupt()` support
-- **Thread-based execution** for stateful conversations
+```
+Requirement.txt  →  DocumentProcessor  →  Orchestrator
+  ┌──────────────────────────────────────────────────────┐
+  │ Analyzer → Stories → AcceptanceCriteria → GapAnalysis │
+  │ → EffortEstimation → Review → Refinement              │
+  └──────────────────────────────────────────────────────┘
+                                                    →  ba_report.json
+```
+
+### V2 — LangGraph Graph with Fan‑Out / Fan‑In
+
+```
+START → retriever → analyze_requirements
+                         ╱            ╲
+                  build_stories    gap_analysis
+                         ╲            ╱
+                      prepare_review
+                            │
+                       review_output
+                            │
+                         approval ←── human interrupt
+                          ╱    ╲
+                       END    refinement_output ──→ prepare_review (loop)
+```
 
 ---
 
 ## 📂 Project Structure
 
 ```
-BA_Copilot/
-├── BA_Copilot_V1/              # Stable custom orchestration
-│   ├── agents/                 # Analyzer, Reviewer, Refinement agents
-│   ├── workflow/               # Orchestration logic
-│   ├── core/                   # LLM provider abstraction
-│   ├── requirements.txt        # V1 dependencies
+ba-copilot/
+├── README.md                       ← This file
+│
+├── BA_Copilot_V1/                  ← Stable: custom orchestration + Streamlit
+│   ├── agents/                     │  7 specialty agents (analyzer, stories, etc.)
+│   ├── core/                       │  LLM provider abstraction & mock provider
+│   ├── document/                   │  Multi‑format document processor
+│   ├── prompts/                    │  7 prompt templates (.txt)
+│   ├── workflow/                   │  Orchestrator + WorkflowState
+│   ├── samples/                    │  Sample input files
+│   ├── outputs/                    │  Generated ba_report.json
+│   ├── app.py                      │  Streamlit web UI
+│   ├── main.py                     │  CLI entry point
+│   ├── ARCHITECTURE.MD             │  Detailed architecture docs
 │   └── README.md
 │
-├── BA_Copilot_V2/              # LangGraph development version
-│   ├── nodes/                  # Graph nodes (retriever, analyzer, etc.)
-│   ├── routers/                # Conditional edge routers
-│   ├── models/                 # Pydantic output types
-│   ├── tools/                  # Node-specific utilities
-│   ├── state.py                # BAState TypedDict definition
-│   ├── graph.py                # StateGraph with checkpoints
-│   ├── main.py                 # Entry point with streaming + approval
-│   ├── requirements.txt        # V2 dependencies (LangGraph, etc.)
+├── BA_Copilot_V2/                  ← LangGraph: human‑in‑the‑loop + checkpoints
+│   ├── nodes/                      │  8 graph nodes (retriever, analyzer, …)
+│   ├── routers/                    │  Conditional routing (approval_router)
+│   ├── models/                     │  Pydantic data models
+│   ├── tools/                      │  Retriever stub (RAG‑ready)
+│   ├── utils/                      │  JSON parser & prompt loader
+│   ├── llm/                        │  Provider factory (DeepSeek + Ollama stub)
+│   ├── document/                   │  Multi‑format document processor
+│   ├── prompts/                    │  7 prompt templates (.txt)
+│   ├── input/                      │  Input requirement files
+│   ├── state.py                    │  BAState TypedDict
+│   ├── graph.py                    │  StateGraph builder + SQLite checkpointer
+│   ├── main.py                     │  Entry point (stream + interrupt + resume)
+│   ├── .env.example                │  Environment template
 │   └── README.md
 │
-├── .vscode/                    # VS Code workspace settings
-├── .gitignore                  # Excludes .venv folders
-└── README.md                   # This file
+└── .gitignore
 ```
 
 ---

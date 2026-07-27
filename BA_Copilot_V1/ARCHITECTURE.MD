@@ -1,420 +1,257 @@
-# BA Copilot - Architecture
+# BA Copilot V1 — Architecture Reference
 
 ## Overview
 
-BA Copilot is a multi-agent AI system designed to automate Business Analyst deliverables from a business requirement document.
-
-The system follows an Agentic AI workflow where specialized agents collaborate to transform requirements into structured BA artifacts.
+BA Copilot V1 is a **multi-agent AI pipeline** that automates Business Analyst deliverables from a raw requirement document. It runs 7 specialized agents sequentially through a `WorkflowOrchestrator`, accumulating outputs in a shared `WorkflowState`, and producing a structured JSON BA report. A Streamlit UI (`app.py`) is also provided for interactive artifact exploration.
 
 ---
 
-# High-Level Architecture
+## High‑Level Architecture
 
-```text
-                 +----------------------+
-                 | Requirement Document |
-                 | (.txt / PDF / DOCX)  |
-                 +----------+-----------+
-                            |
-                            v
-                 +----------------------+
-                 |  Document Processor  |
-                 +----------+-----------+
-                            |
-                            v
-                 +----------------------+
-                 | Workflow Orchestrator|
-                 +----------+-----------+
-                            |
-                            v
-                 +----------------------+
-                 |   Workflow State     |
-                 +----------+-----------+
-                            |
-                            v
-
-+---------------------------------------------------------+
-|                     Agent Pipeline                      |
-+---------------------------------------------------------+
-|                                                         |
-|  1. Requirement Analyzer Agent                          |
-|         ↓                                               |
-|  2. User Story Agent                                    |
-|         ↓                                               |
-|  3. Acceptance Criteria Agent                           |
-|         ↓                                               |
-|  4. Gap Analysis Agent                                  |
-|         ↓                                               |
-|  5. Effort Estimation Agent                             |
-|         ↓                                               |
-|  6. Review Agent                                        |
-|         ↓                                               |
-|  7. Refinement Agent                                    |
-|                                                         |
-+---------------------------------------------------------+
-                            |
-                            v
-                 +----------------------+
-                 |   Provider Factory   |
-                 +----------+-----------+
-                            |
-                            v
-                 +----------------------+
-                 |     LLM Provider     |
-                 |  Mock / Real Model   |
-                 +----------+-----------+
-                            |
-                            v
-                 +----------------------+
-                 |   BA Report JSON     |
-                 +----------------------+
+```
+                 ┌──────────────────────┐
+                 │ Requirement Document │
+                 │ (.txt / .pdf / .docx)│
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │  Document Processor  │  → plain text
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │ Workflow Orchestrator│  ← runs agents sequentially
+                 └──────────┬───────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│                     Agent Pipeline                           │
+├──────────────────────────────────────────────────────────────┤
+│  1. RequirementAnalyzer      → actors, modules, requirements │
+│         ↓                                                    │
+│  2. UserStoryAgent           → user stories                  │
+│         ↓                                                    │
+│  3. AcceptanceCriteriaAgent  → Given-When-Then criteria      │
+│         ↓                                                    │
+│  4. GapAnalysisAgent         → gaps, clarification questions │
+│         ↓                                                    │
+│  5. EffortEstimationAgent    → complexity, story points, days│
+│         ↓                                                    │
+│  6. ReviewAgent              → quality score, issues         │
+│         ↓                                                    │
+│  7. RefinementAgent          → improvements, final score     │
+└──────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │   WorkflowState      │  ← mutable data bag
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │  outputs/            │
+                 │  ba_report.json      │
+                 └──────────────────────┘
 ```
 
 ---
 
-# Core Components
+## Core Components
 
-## 1. Document Processor
+### 1. Document Processor (`document/document_processor.py`)
 
-### Purpose
+Ingests requirement documents and outputs plain text.
 
-Responsible for ingesting requirement documents.
+| Format | Library | Method |
+|--------|---------|--------|
+| `.txt` | `pathlib` | `Path.read_text(encoding="utf-8")` |
+| `.pdf` | `PyPDF2` | `PdfReader` → iterate pages → extract text |
+| `.docx` | `python-docx` | `Document` → join paragraph texts |
 
-### Current Support
-
-- TXT documents
-
-### Planned Support
-
-- PDF documents
-- DOCX documents
-
-### Responsibility
-
-Converts documents into plain text that can be processed by agents.
+Unsupported formats raise `ValueError`.
 
 ---
 
-## 2. Workflow Orchestrator
+### 2. Workflow Orchestrator (`workflow/orchestrator.py`)
 
-### File
-
-```text
-workflow/orchestrator.py
-```
-
-### Purpose
-
-Acts as the central coordinator for the agent workflow.
-
-### Responsibilities
-
-- Executes agents in sequence
-- Maintains workflow flow
-- Updates workflow state
-- Generates final report
-
-### Similar Concept
-
-Comparable to:
+The central coordinator. Instantiates all 7 agents in `__init__` and runs the sequential pipeline:
 
 ```python
-Runner.run()
+def run(self, requirement: str) -> WorkflowState:
+    state = WorkflowState()
+    state.analysis          = self.analyzer.analyze(requirement)
+    state.stories           = self.user_story_agent.generate(state.analysis)
+    state.acceptance_criteria = self.acceptance_criteria_agent.generate(state.stories)
+    state.story_gaps        = self.gap_analysis_agent.generate(state.stories)
+    state.effort_estimation = self.effort_agent.generate(composite)
+    state.review            = self.review_agent.generate(composite)
+    state.refinement        = self.refinement_agent.generate(state.review)
+    return state
 ```
 
-in OpenAI Agents SDK.
+- **Linear, non‑branching** — no conditional logic or error handling.
+- Each agent receives the accumulated output of previous agents.
 
 ---
 
-## 3. Workflow State
+### 3. Workflow State (`workflow/state.py`)
 
-### File
-
-```text
-workflow/state.py
-```
-
-### Purpose
-
-Stores intermediate and final outputs generated by agents.
-
-### State Attributes
+A mutable plain‑class container (no Pydantic, no typing):
 
 ```python
-analysis
-stories
-acceptance_criteria
-story_gaps
-effort_estimation
-review
-refinement
+class WorkflowState:
+    analysis: dict | None
+    stories: dict | None
+    acceptance_criteria: dict | None
+    story_gaps: dict | None
+    effort_estimation: dict | None
+    review: dict | None
+    refinement: dict | None
 ```
 
-### Benefits
-
-- Shared context between agents
-- Easier debugging
-- Scalable architecture
+`to_dict()` serializes all attributes for JSON output. No validation — purely a data bag.
 
 ---
 
-## 4. Base Agent
+### 4. Base Agent (`agents/base_agent.py`)
 
-### File
-
-```text
-agents/base_agent.py
-```
-
-### Purpose
-
-Common parent class for all agents.
-
-### Responsibilities
-
-- Prompt loading
-- LLM initialization
-- Shared functionality
-
-### Benefits
-
-- Reduces code duplication
-- Easier maintenance
-
----
-
-## 5. Provider Factory
-
-### File
-
-```text
-core/provider_factory.py
-```
-
-### Purpose
-
-Centralized model provider selection.
-
-### Example
+Common parent for all agents:
 
 ```python
-ProviderFactory.get_provider()
+class BaseAgent:
+    def __init__(self, prompt_file: str):
+        self.prompt_template = Path("prompts/prompt_file").read_text()
+        self.llm = ProviderFactory.get_provider()
 ```
 
-### Benefits
-
-Allows switching between:
-
-- Mock Provider
-- OpenAI Provider
-- Claude Provider
-- Ollama Provider
-
-without modifying agent implementations.
+- Loads a prompt `.txt` file at construction time.
+- Obtains an LLM provider from the `ProviderFactory`.
+- Child classes call `self.llm.generate(prompt)` and `json.loads()` the response.
 
 ---
 
-# Agent Design
+### 5. LLM Provider System (`core/`)
 
-## Requirement Analyzer Agent
-
-### Input
-
-Business Requirement
-
-### Output
-
-```json
-{
-  "actors": [],
-  "modules": [],
-  "functional_requirements": []
-}
+#### `core/llm.py` — `LLMProvider` (abstract base)
+```python
+class LLMProvider:
+    def generate(self, prompt: str) -> str:
+        raise NotImplementedError
 ```
+Pure contract — no implementation.
 
----
+#### `core/mock_provider.py` — `MockLLMProvider`
+Returns **hard‑coded JSON** based on keyword matching in the prompt:
 
-## User Story Agent
+| Prompt keyword | Returns |
+|----------------|---------|
+| `agent_type:user_stories` | User stories JSON |
+| `gap_analysis` | Gaps + clarification questions |
+| `agent_type:acceptance_criteria` | Acceptance criteria JSON |
+| `effort_estimation-02` | Effort estimation JSON |
+| `review-01` | Review JSON |
+| `refinement` | Refinement JSON |
+| *(default)* | Analyzer JSON (actors, modules, requirements) |
 
-### Input
+**No real LLM is called.** Fully deterministic for testing/demo.
 
-Requirement Analysis
-
-### Output
-
-```json
-{
-  "user_stories": []
-}
+#### `core/provider_factory.py` — `ProviderFactory`
+```python
+class ProviderFactory:
+    @staticmethod
+    def get_provider():
+        return MockLLMProvider()
 ```
+Always returns the mock. Swap to a real provider by returning a different `LLMProvider` implementation.
 
 ---
 
-## Acceptance Criteria Agent
+## Agent Design (Details)
 
-### Input
+### Requirement Analyzer (`agents/analyzer.py`)
+- **Prompt**: `prompts/analyzer.txt` — `{requirement}` placeholder
+- **Method**: `analyze(requirement)`
+- **Output**: `{"actors": [...], "modules": [...], "functional_requirements": [...]}`
 
-User Stories
+### User Story Agent (`agents/user_story.py`)
+- **Prompt**: `prompts/user_story.txt` — `{analysis}` placeholder
+- **Method**: `generate(analysis)`
+- **Output**: `{"user_stories": [{"story": "As a … I want … so that …"}, ...]}`
 
-### Output
+### Acceptance Criteria Agent (`agents/acceptance_criteria.py`)
+- **Prompt**: `prompts/acceptance_criteria.txt` — `{stories}` placeholder
+- **Method**: `generate(stories)`
+- **Output**: `{"acceptance_criteria": [{"story": "...", "criteria": ["Given … When … Then …"]}, ...]}`
 
-```json
-{
-  "acceptance_criteria": []
-}
+### Gap Analysis Agent (`agents/gap_analysis.py`)
+- **Prompt**: `prompts/gap_analysis.txt` — `{analysis}` placeholder (though orchestrator passes `state.stories`)
+- **Method**: `generate(analysis)`
+- **Output**: `{"gaps": [...], "clarification_questions": [...]}`
+
+### Effort Estimation Agent (`agents/effort_estimation.py`)
+- **Prompt**: `prompts/effort_estimation.txt` — `{workflow_input}` placeholder
+- **Method**: `generate(workflow_input)` — receives composite of analysis + stories + ACs
+- **Output**: `{"complexity": "...", "story_points": N, "estimated_days": N, "assumptions": [...], "risks": [...]}`
+
+### Review Agent (`agents/review.py`)
+- **Prompt**: `prompts/review.txt` — `{workflow_output}` placeholder
+- **Method**: `generate(workflow_output)` — receives composite of ALL previous outputs
+- **Output**: `{"quality_score": N, "strengths": [...], "issues": [...], "recommendations": [...]}`
+
+### Refinement Agent (`agents/refinement.py`)
+- **Prompt**: `prompts/refinement.txt` — `{review_output}` placeholder
+- **Method**: `generate(review_output)`
+- **Output**: `{"improvements": [...], "final_quality_score": N}`
+
+---
+
+## Entry Points
+
+### `main.py` — CLI
+```python
+def build_state(file_path="samples/requirement.txt"):
+    text = DocumentProcessor().extract_text(file_path)
+    orchestrator = WorkflowOchestrator()
+    state = orchestrator.run(text)
+    Path("outputs/ba_report.json").write_text(json.dumps(state.to_dict()))
+    return state
 ```
+Prints the JSON to stdout. Default input is `samples/requirement.txt`.
+
+### `app.py` — Streamlit UI
+Imports `build_state()` from `main.py`. Renders each artifact section in the browser:
+- 🔍 Analysis
+- 🧩 User Stories
+- ✅ Acceptance Criteria
+- ⚠️ Story Gaps
+- ⏱ Effort Estimation
+- 🧠 Review Summary
+- 🔧 Refinement Suggestions
+- 📥 Download button for `ba_report.json`
 
 ---
 
-## Gap Analysis Agent
+## V1 Status
 
-### Input
-
-User Stories
-
-### Output
-
-```json
-{
-  "gaps": [],
-  "clarification_questions": []
-}
-```
-
----
-
-## Effort Estimation Agent
-
-### Input
-
-Analysis + Stories + Acceptance Criteria
-
-### Output
-
-```json
-{
-  "complexity": "",
-  "story_points": 0,
-  "estimated_days": 0
-}
-```
+| Feature | Status |
+|---------|--------|
+| Multi‑Agent Workflow | ✅ |
+| Workflow Orchestration | ✅ |
+| Workflow State Management | ✅ |
+| Provider Factory Pattern | ✅ |
+| Prompt Management | ✅ |
+| JSON Report Generation | ✅ |
+| Review & Refinement Loop | ✅ |
+| Streamlit UI | ✅ |
+| PDF/DOCX Support | ✅ |
+| Real LLM Integration | Mock only (extensible) |
+| Human‑in‑the‑Loop | ❌ (see V2) |
+| Parallel Execution | ❌ (see V2) |
+| State Persistence | ❌ (see V2) |
 
 ---
 
-## Review Agent
+## Author
 
-### Input
-
-Generated BA Report
-
-### Output
-
-```json
-{
-  "quality_score": 0,
-  "strengths": [],
-  "issues": [],
-  "recommendations": []
-}
-```
-
----
-
-## Refinement Agent
-
-### Input
-
-Review Results
-
-### Output
-
-```json
-{
-  "improvements": [],
-  "final_quality_score": 0
-}
-```
-
----
-
-# Workflow Sequence
-
-```text
-Requirement
-    ↓
-Analyzer Agent
-    ↓
-User Story Agent
-    ↓
-Acceptance Criteria Agent
-    ↓
-Gap Analysis Agent
-    ↓
-Effort Estimation Agent
-    ↓
-Review Agent
-    ↓
-Refinement Agent
-    ↓
-BA Report
-```
-
----
-
-# Current Architecture Version
-
-**Version:** V1.0
-
-### Completed
-
-✅ Multi-Agent Workflow
-
-✅ Workflow Orchestration
-
-✅ Workflow State Management
-
-✅ Provider Factory Pattern
-
-✅ Prompt Management
-
-✅ JSON Report Generation
-
-✅ Review & Refinement Loop
-
----
-
-# Future Roadmap
-
-## V2
-
-### Real LLM Integration
-
-- OpenAI
-- Claude
-- Azure OpenAI
-
-### Advanced Document Support
-
-- PDF
-- DOCX
-
-### User Interface
-
-- Streamlit
-
-### Retrieval-Augmented Generation (RAG)
-
-- Vector Store
-- Knowledge Base
-- Document Retrieval
-
-### LangGraph Implementation
-
-Convert custom orchestration to LangGraph-based workflow.
-
----
-
-# Author
-
-**Suhail Riyaz**
-Agentic AI Enthusiast
+**Suhail Riyaz** — Agentic AI Enthusiast
