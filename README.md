@@ -1,8 +1,11 @@
 # BA Copilot — Agentic AI Business Analyst Assistant
 
-**BA Copilot** is a multi-agent AI system that automates the full Business Analyst workflow. It ingests raw requirement documents (`.txt`, `.pdf`, `.docx`) and produces structured BA deliverables — analysis, user stories, acceptance criteria, gap analysis, effort estimation, quality review, and refinements.
+**BA Copilot** is a multi-agent AI system that automates the full Business Analyst workflow. It ingests raw requirement documents (`.txt`, `.pdf`, `.docx`) and produces structured BA deliverables — analysis, user stories, gap analysis, quality review, and iterative refinements.
 
-> Two implementations are provided: **V1** (stable, custom orchestration + Streamlit UI) and **V2** (LangGraph‑based with human‑in‑the‑loop approval and SQLite checkpointing).
+> Three implementations are provided:
+> - **V1** — Stable, custom orchestration + Streamlit UI
+> - **V2** — LangGraph-based with human-in-the-loop approval and SQLite checkpointing
+> - **V3** ⭐ — **Current.** Production LangGraph workflow with planner routing, tool-calling agents, auto-retry validation, and iterative refinement loop
 
 ---
 
@@ -22,6 +25,17 @@
 ---
 
 ## 🎯 Quick Start
+
+### V3 ⭐ — LangGraph Production Workflow (Recommended)
+
+```bash
+cd BA_Copilot_V3
+python -m venv .venv
+.venv\Scripts\Activate.ps1          # Windows
+pip install -r requirements.txt
+cp .env.example .env                # then add your DEEPSEEK_API_KEY
+python main.py                      # full automated workflow
+```
 
 ### V1 — Stable (Custom Orchestration + Streamlit UI)
 
@@ -49,21 +63,47 @@ python main.py                      # interactive approval prompt
 
 ## 📦 Version Comparison
 
-| Feature | V1 | V2 |
-|---|---|---|
-| **Framework** | Custom sequential pipeline | LangGraph `StateGraph` |
-| **LLM Backend** | Mock provider (deterministic) | DeepSeek via OpenAI‑compatible API |
-| **Parallelism** | ❌ Sequential only | ✅ Stories + Gap Analysis run in parallel |
-| **State** | Plain `WorkflowState` class | Typed `BAState` (TypedDict) |
-| **Persistence** | JSON file (`outputs/ba_report.json`) | SQLite checkpointing (`ba_copilot.db`) |
-| **Human‑in‑the‑Loop** | ❌ Not implemented | ✅ `interrupt()` with approve/refine loop |
-| **Resumable** | ❌ No | ✅ Thread‑ID‑based resume |
-| **UI** | Streamlit (`app.py`) | CLI only |
-| **Status** | ✅ Stable | 🚧 Active Development |
+| Feature | V1 | V2 | V3 ⭐ |
+|---|---|---|---|
+| **Framework** | Custom sequential pipeline | LangGraph `StateGraph` | LangGraph `StateGraph` |
+| **LLM Backend** | Mock provider (deterministic) | DeepSeek via OpenAI API | DeepSeek via OpenAI API |
+| **Planner** | ❌ None | ❌ Fixed linear flow | ✅ Dynamic router (analyzer / gap / done) |
+| **Agent Pattern** | One-shot LLM calls | One-shot LLM calls | Shared `invoke_with_validation` + auto-retry |
+| **Tool-calling Agent** | ❌ | ❌ | ✅ ReAct agent with `retrieve_similar_brd` |
+| **Parallelism** | ❌ Sequential only | ✅ Stories + Gap in parallel | ✅ Stories + Gap in parallel |
+| **Refinement Loop** | ❌ Manual | ✅ Human-in-the-loop | ✅ Automatic approval router + iteration cap |
+| **State** | Plain `WorkflowState` class | Typed `BAState` (TypedDict) | Typed `BAState` (TypedDict) with all outputs |
+| **Persistence** | JSON file | SQLite checkpointing | SQLite checkpointing |
+| **UI** | Streamlit (`app.py`) | CLI only | CLI only |
+| **Status** | ✅ Stable | 🚧 Active Development | ⭐ **Current** |
 
 ---
 
 ## 🏗️ Architecture at a Glance
+
+### V3 ⭐ — Planner-Routed LangGraph with Tool-Calling Agent
+
+```mermaid
+graph TD
+    START --> planner
+
+    planner -->|analyze_requirements| analyzer
+    planner -->|gap_analysis| gap_analysis
+    planner -->|done| END
+
+    analyzer --> story
+    analyzer --> gap_analysis
+
+    story --> review
+    gap_analysis --> review
+
+    review --> approval
+
+    approval -->|refinement| refinement
+    approval -->|end| END
+```
+
+The **planner** dynamically routes based on the requirement. The **analyzer** is a ReAct agent with a BRD knowledge retrieval tool. **Story** and **gap_analysis** run in parallel, then converge at **review**. The **approval router** enables automatic iterative refinement with an iteration cap.
 
 ### V1 — Linear Agent Pipeline
 
@@ -99,6 +139,23 @@ START → retriever → analyze_requirements
 ```
 ba-copilot/
 ├── README.md                       ← This file
+│
+├── BA_Copilot_V3/                  ⭐ Current — planner-routed LangGraph + tool-calling agents
+│   ├── agents/                     │  6 agents (planner, analyzer, gap, story, review, refinement)
+│   ├── nodes/                      │  7 graph nodes
+│   ├── routers/                    │  planner_router + approval_router
+│   ├── models/                     │  6 Pydantic output models
+│   ├── prompts/                    │  6 prompt templates (.txt)
+│   ├── llm/                        │  DeepSeek provider (OpenAI-compatible)
+│   ├── tools/                      │  BRD knowledge retriever (ReAct agent tool)
+│   ├── utils/                      │  invoke_with_validation, json_parser, prompt_loader
+│   ├── document/                   │  Multi-format document processor
+│   ├── graph/                      │  StateGraph definition + checkpointing
+│   ├── input/                      │  Sample requirement files
+│   ├── main.py                     │  Entry point
+│   ├── state.py                    │  BAState TypedDict
+│   ├── requirements.txt
+│   └── README.md
 │
 ├── BA_Copilot_V1/                  ← Stable: custom orchestration + Streamlit
 │   ├── agents/                     │  7 specialty agents (analyzer, stories, etc.)

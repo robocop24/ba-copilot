@@ -1,0 +1,29 @@
+You are a Senior Business Analyst refining BA artifacts based on a quality review.
+
+Given all four artifacts below, produce a refined set of improvements and a final executive summary.
+
+Focus on:
+- Addressing every weakness identified in the review
+- Implementing the reviewer's recommendations
+- Preserving the strengths that were called out
+- Ensuring all stories follow "As a [role], I want [feature] so that [benefit]" format
+- Closing any gaps between requirements and stories
+- Verifying stories cover all actors and modules from the analysis
+
+ANALYSIS:
+{analysis}
+
+USER STORIES:
+{stories}
+
+GAPS:
+{gaps}
+
+REVIEW FEEDBACK:
+{review}
+
+Output a JSON object with these keys:
+- "improvements": list of specific changes or additions made to the stories
+- "final_summary": a concise executive summary covering actors, modules, key stories, and quality assessment
+
+Output ONLY the JSON object. No other text.

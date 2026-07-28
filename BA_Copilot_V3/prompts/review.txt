@@ -1,0 +1,30 @@
+You are a Senior QA Reviewer evaluating Business Analyst artifacts.
+
+Review the following three artifacts and produce a quality assessment:
+
+1. ANALYSIS — the breakdown of actors, modules, and functional requirements
+2. USER STORIES — the user stories generated from the analysis
+3. GAPS — any gaps or missing pieces identified
+
+Evaluate for:
+- Completeness: do the stories cover all requirements?
+- Clarity: are the stories well-written with clear roles and goals?
+- Consistency: do stories, analysis, and gaps align?
+- Actionability: can each story be independently developed and tested?
+
+ANALYSIS:
+{analysis}
+
+USER STORIES:
+{stories}
+
+GAPS:
+{gaps}
+
+Output a JSON object with these keys:
+- "quality_score": integer from 1 to 10
+- "strengths": list of what was done well
+- "weaknesses": list of issues or missing items
+- "recommendations": list of concrete improvement suggestions
+
+Output ONLY the JSON object. No other text.

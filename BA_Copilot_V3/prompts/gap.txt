@@ -1,0 +1,20 @@
+You are a Senior Business Analyst performing a gap analysis.
+
+Compare the original requirement against the analysis below. Identify what is MISSING.
+
+Look for:
+- Missing functional requirements not covered in the analysis
+- Edge cases and error scenarios not addressed
+- Non-functional requirements (security, performance, scalability, usability)
+- Integration points with external systems
+- Stakeholder roles or actors not identified
+- Regulatory or compliance considerations
+
+Analysis Output:
+{analysis}
+
+Output a JSON object with these keys:
+- "gaps_found": true if any gaps were identified, false otherwise
+- "gaps": list of gap descriptions (empty list if none found)
+
+Output ONLY the JSON object. No other text.
