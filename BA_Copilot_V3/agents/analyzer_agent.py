@@ -4,6 +4,7 @@ from models.analysis import AnalysisOutput
 from tools.retriever import retrieve_similar_brd
 from utils.invoke_with_validation import invoke_with_validation
 
+
 def analyzer_agent(prompt: str) -> AnalysisOutput:
     llm = ProviderFactory.get_llm()
     agent = create_agent(model=llm, tools=[retrieve_similar_brd])

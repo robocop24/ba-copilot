@@ -2,10 +2,11 @@
 
 **BA Copilot** is a multi-agent AI system that automates the full Business Analyst workflow. It ingests raw requirement documents (`.txt`, `.pdf`, `.docx`) and produces structured BA deliverables — analysis, user stories, gap analysis, quality review, and iterative refinements.
 
-> Three implementations are provided:
+> Four components are provided:
 > - **V1** — Stable, custom orchestration + Streamlit UI
 > - **V2** — LangGraph-based with human-in-the-loop approval and SQLite checkpointing
 > - **V3** ⭐ — **Current.** Production LangGraph workflow with planner routing, tool-calling agents, auto-retry validation, and iterative refinement loop
+> - **BA MCP Server** — FastMCP server providing BRD retrieval, story point estimation, and requirement loading tools
 
 ---
 
@@ -17,7 +18,7 @@
 | **User Stories** | Standardized "As a … I want … so that …" format |
 | **Acceptance Criteria** | Given‑When‑Then scenarios for each story |
 | **Gap Analysis** | Missing information, ambiguities, edge cases, and clarification questions |
-| **Effort Estimation** | Complexity, story points, estimated days, assumptions, and risks |
+| **Effort Estimation** | Story points per story via dedicated estimation agent + MCP tool |
 | **Quality Review** | 1–10 score with strengths, weaknesses, and recommendations |
 | **Refinement** | Revised stories and a summary of changes based on review feedback |
 | **Human Approval** | V2 pauses the graph for manual approve/refine decision (with iteration cap) |
@@ -34,7 +35,7 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1          # Windows
 pip install -r requirements.txt
 cp .env.example .env                # then add your DEEPSEEK_API_KEY
-python main.py                      # full automated workflow
+python main.py                      # runs full workflow → output/ba_report_*.json
 ```
 
 ### V1 — Stable (Custom Orchestration + Streamlit UI)
@@ -94,7 +95,8 @@ graph TD
     analyzer --> story
     analyzer --> gap_analysis
 
-    story --> review
+    story --> estimation
+    estimation --> review
     gap_analysis --> review
 
     review --> approval
@@ -103,7 +105,7 @@ graph TD
     approval -->|end| END
 ```
 
-The **planner** dynamically routes based on the requirement. The **analyzer** is a ReAct agent with a BRD knowledge retrieval tool. **Story** and **gap_analysis** run in parallel, then converge at **review**. The **approval router** enables automatic iterative refinement with an iteration cap.
+The **planner** dynamically routes based on the requirement. The **analyzer** is a ReAct agent with a BRD knowledge retrieval tool. **Story** and **gap_analysis** run in parallel. Stories flow through **estimation** (story point scoring via MCP) before converging with gaps at **review**. The **approval router** enables automatic iterative refinement with an iteration cap.
 
 ### V1 — Linear Agent Pipeline
 
@@ -141,17 +143,19 @@ ba-copilot/
 ├── README.md                       ← This file
 │
 ├── BA_Copilot_V3/                  ⭐ Current — planner-routed LangGraph + tool-calling agents
-│   ├── agents/                     │  6 agents (planner, analyzer, gap, story, review, refinement)
-│   ├── nodes/                      │  7 graph nodes
+│   ├── agents/                     │  7 agents (planner, analyzer, gap, story, estimation, review, refinement)
+│   ├── nodes/                      │  8 graph nodes
 │   ├── routers/                    │  planner_router + approval_router
-│   ├── models/                     │  6 Pydantic output models
-│   ├── prompts/                    │  6 prompt templates (.txt)
+│   ├── models/                     │  7 Pydantic output models
+│   ├── prompts/                    │  7 prompt templates (.txt)
 │   ├── llm/                        │  DeepSeek provider (OpenAI-compatible)
-│   ├── tools/                      │  BRD knowledge retriever (ReAct agent tool)
+│   ├── tools/                      │  retriever (BRD + story points via MCP)
+│   ├── mcp_client/                 │  FastMCP client wrapper for BA MCP Server
 │   ├── utils/                      │  invoke_with_validation, json_parser, prompt_loader
 │   ├── document/                   │  Multi-format document processor
 │   ├── graph/                      │  StateGraph definition + checkpointing
-│   ├── input/                      │  Sample requirement files
+│   ├── input/                      │  Place requirement.txt/.pdf/.docx here
+│   ├── output/                     │  Generated ba_report_*.json reports
 │   ├── main.py                     │  Entry point
 │   ├── state.py                    │  BAState TypedDict
 │   ├── requirements.txt
@@ -184,6 +188,14 @@ ba-copilot/
 │   ├── graph.py                    │  StateGraph builder + SQLite checkpointer
 │   ├── main.py                     │  Entry point (stream + interrupt + resume)
 │   ├── .env.example                │  Environment template
+│   └── README.md
+│
+├── BA_MCP_Server/                  ← FastMCP server for BA tools & knowledge
+│   ├── server.py                   │  FastMCP server entry point
+│   ├── tools/                      │  retrieve_similar_brd, calculate_story_points, load_requirement
+│   ├── resources/                  │  BA standards, checklists, templates
+│   ├── prompts/                    │  Prompt templates (user stories, review)
+│   ├── utils/                      │  Shared utilities
 │   └── README.md
 │
 └── .gitignore

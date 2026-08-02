@@ -1,5 +1,6 @@
-from utils.prompt_loader import load_prompt
 from agents.analyzer_agent import analyzer_agent
+from utils.prompt_loader import load_prompt
+
 
 def analyzer_node(state):
 

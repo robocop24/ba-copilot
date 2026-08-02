@@ -17,7 +17,8 @@ graph TD
     analyzer --> story
     analyzer --> gap_analysis
 
-    story --> review
+    story --> estimation
+    estimation --> review
     gap_analysis --> review
 
     review --> approval
@@ -32,13 +33,15 @@ graph TD
 | 2a | `analyzer` | `analyzer_agent` | `retrieve_similar_brd` | `AnalysisOutput` (actors, modules, requirements) |
 | 2b | `gap_analysis` | `gap_agent` | — | `GapOutput` (gaps_found, gaps) |
 | 3 | `story` | `story_agent` | — | `StoryOutput` (user_stories) |
-| 4 | `review` | `review_agent` | — | `ReviewOutput` (quality_score, strengths, weaknesses, recommendations) |
-| 5 | `approval` | — (router) | — | Routes to `refinement` or `END` based on `approved` flag + iteration cap |
-| 6 | `refinement` | `refinement_agent` | — | `RefinementOutput` (improvements, final_summary) |
+| 4 | `estimation` | `estimation_agent` | `calculate_story_points` | `EstimationOutput` (stories with points) |
+| 5 | `review` | `review_agent` | — | `ReviewOutput` (quality_score, strengths, weaknesses, recommendations) |
+| 6 | `approval` | — (router) | — | Routes to `refinement` or `END` based on `approved` flag + iteration cap |
+| 7 | `refinement` | `refinement_agent` | — | `RefinementOutput` (improvements, final_summary) |
 
 - **Planner router** decides the first branch: `analyze_requirements` → full pipeline, or `gap_analysis` → gap-only review.
 - **Approval router** enables iterative refinement: if not approved and under iteration cap, loops to `refinement`.
-- **Analyzer** is the only agent with a tool (`retrieve_similar_brd`) — a ReAct agent that can look up BRD knowledge.
+- **Analyzer** is a ReAct agent with `retrieve_similar_brd` — looks up BRD knowledge from the MCP server.
+- **Estimation** agent scores each story with story points via the `calculate_story_points` MCP tool — follows SRP: story agent creates, estimation agent scores.
 
 ---
 
@@ -55,6 +58,7 @@ BA_Copilot_V3/
 │   ├── analyzer_agent.py    # ← has tool: retrieve_similar_brd
 │   ├── gap_agent.py
 │   ├── story_agent.py
+│   ├── estimation_agent.py  # ← has tool: calculate_story_points
 │   ├── review_agent.py
 │   └── refinement_agent.py
 ├── nodes/                   # Graph node functions (load prompt → call agent)
@@ -62,6 +66,7 @@ BA_Copilot_V3/
 │   ├── analyzer_node.py
 │   ├── gap_node.py
 │   ├── story_node.py
+│   ├── estimation_node.py
 │   ├── review_node.py
 │   ├── approval_node.py
 │   └── refinement_node.py
@@ -73,6 +78,7 @@ BA_Copilot_V3/
 │   ├── analysis.py
 │   ├── gaps.py
 │   ├── story.py
+│   ├── estimation.py
 │   ├── review.py
 │   └── refinement.py
 ├── prompts/                 # Prompt templates (loaded by nodes)
@@ -80,6 +86,7 @@ BA_Copilot_V3/
 │   ├── analyzer.txt
 │   ├── gap.txt
 │   ├── story.txt
+│   ├── estimation.txt
 │   ├── review.txt
 │   └── refinement.txt
 ├── llm/                     # LLM provider (DeepSeek via OpenAI-compatible)
@@ -87,7 +94,9 @@ BA_Copilot_V3/
 │   ├── provider_factory.py
 │   └── settings.py
 ├── tools/
-│   └── retriever.py         # BRD knowledge retrieval tool
+│   └── retriever.py         # BRD knowledge + story points (MCP tools)
+├── mcp_client/              # FastMCP client wrapper for BA MCP Server
+│   └── client_wrapper.py
 ├── utils/
 │   ├── invoke_with_validation.py   # Retry + structured validation
 │   ├── append_validation_feedback.py
@@ -96,7 +105,9 @@ BA_Copilot_V3/
 ├── document/
 │   └── document_processor.py       # .txt / .pdf / .docx reader
 ├── input/
-│   └── requirement.txt             # Sample input
+│   └── requirement.txt             # Place input files here
+├── output/                         # Generated BA reports
+│   └── ba_report_*.json
 ├── requirements.txt
 └── .env                    # DEEPSEEK_API_KEY, MODEL_NAME, etc.
 ```
@@ -115,8 +126,9 @@ invoke_with_validation(invokable, payload, model_class)
   → on failure: append error to payload, retry up to 2 times
 ```
 
-- **Planner / Gap / Story / Review / Refinement**: stateless `llm.invoke(prompt)` — no tools needed.
-- **Analyzer**: stateful `create_agent(model=llm, tools=[retriever])` — ReAct agent loop with tool calling.
+- **Planner / Gap / Story / Estimation / Review / Refinement**: stateless `llm.invoke(prompt)` — no tools needed.
+- **Analyzer**: stateful `create_agent(model=llm, tools=[retrieve_similar_brd])` — ReAct agent loop with MCP tool calling.
+- **Estimation**: stateful `create_agent(model=llm, tools=[calculate_story_points])` — scores each story via MCP.
 
 ### Router pattern
 
