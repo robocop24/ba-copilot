@@ -1,11 +1,16 @@
 from agents.story_agent import story_agent
+from mcp_client.resource_cache import get_resource
 from utils.prompt_loader import load_prompt
 
+
 def story_node(state):
+    
+    story_standard = get_resource("ba://story_standard")
     
     prompt_template = load_prompt("story.txt")
     prompt = prompt_template.format(
             analysis=state["analysis"].model_dump_json(indent=2),
+            story_standard=story_standard,
         )
     
     stories = story_agent(prompt=prompt)

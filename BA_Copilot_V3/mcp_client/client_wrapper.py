@@ -1,34 +1,50 @@
-import os
+"""
+MCP client wrapper for tool calls.
+
+Uses a module-level singleton Client to avoid spawning a new
+stdio subprocess for every tool invocation. The subprocess is
+created once on first use and reused across all subsequent calls.
+"""
+
+import asyncio
 
 from fastmcp import Client
 
-# Resolve the BA MCP Server directory (sibling to BA_Copilot_V3)
-_MCP_SERVER_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "BA_MCP_Server")
-)
-_SERVER_PY = os.path.join(_MCP_SERVER_DIR, "server.py")
+from mcp_client import get_server_target
+
+_client: Client | None = None
+_lock = asyncio.Lock()
+
+
+async def _get_client() -> Client:
+    """Return a long-lived Client singleton. Creates it on first call."""
+    global _client
+    if _client is not None:
+        return _client
+    async with _lock:
+        if _client is not None:  # double-check under lock
+            return _client
+        _client = Client(get_server_target())
+        await _client.__aenter__()
+        return _client
 
 
 class BAMCPClient:
-    """Wrapper around fastmcp.Client that connects to the BA MCP Server via stdio."""
+    """Wrapper that reuses a single MCP subprocess across all tool calls."""
+
+    async def _call_tool(self, tool_name: str, arguments: dict) -> str:
+        client = await _get_client()
+        result = await client.call_tool(tool_name, arguments)
+        return result.content[0].text
 
     async def retrieve_similar_brd(self, requirement: str) -> str:
-        # fastmcp auto-detects .py files and uses PythonStdioTransport
-        client = Client(_SERVER_PY)
+        return await self._call_tool(
+            "retrieve_similar_brd",
+            {"requirement": requirement},
+        )
 
-        async with client:
-            result = await client.call_tool(
-                "retrieve_similar_brd",
-                {"requirement": requirement},
-            )
-            return result.content[0].text
-        
-    async def calulate_story_points(self, complexity:str)-> int:
-        client = Client(_SERVER_PY)
-        
-        async with client:
-            result = await client.call_tool(
-                "calulate_story_points",
-                { "complexity": complexity }
-            )
-            return result.content[0].text
+    async def calulate_story_points(self, complexity: str) -> int:
+        return await self._call_tool(
+            "calulate_story_points",
+            {"complexity": complexity},
+        )

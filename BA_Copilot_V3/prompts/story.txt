@@ -10,6 +10,9 @@ Guidelines:
 - Keep stories concise — one clear goal per story
 - Prioritize end-user facing stories first
 
+Follow this standard for every story:
+{story_standard}
+
 Analysis:
 {analysis}
 
