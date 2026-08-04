@@ -1,10 +1,11 @@
+import json as _json
 import sqlite3
 
-from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.sqlite import SqliteSaver
 # Monkey-patch JsonPlusSerializer to add missing dumps/loads methods
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
-import json as _json
+from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.graph import END, START, StateGraph
+
 if not hasattr(JsonPlusSerializer, 'dumps'):
     def _dumps(self, obj):
         return _json.dumps(obj, default=str)
@@ -15,6 +16,18 @@ if not hasattr(JsonPlusSerializer, 'loads'):
             return {}
         return _json.loads(data)
     JsonPlusSerializer.loads = _loads
+
+# Register Pydantic models for msgpack checkpoint (de)serialization
+_serde = JsonPlusSerializer().with_msgpack_allowlist([
+    ("models.plan", "PlanOutput"),
+    ("models.analysis", "AnalysisOutput"),
+    ("models.story", "StoryOutput"),
+    ("models.estimation", "EstimationOutput"),
+    ("models.gaps", "GapOutput"),
+    ("models.review", "ReviewOutput"),
+    ("models.refinement", "RefinementOutput"),
+])
+
 from nodes.analyzer_node import analyzer_node
 from nodes.approval_node import approval_node
 from nodes.estimation_node import estimation_node
@@ -28,7 +41,7 @@ from routers.planner_router import planner_router
 from state import BAState
 
 conn = sqlite3.connect('ba_copilot_v3.db', check_same_thread=False)
-checkpointer = SqliteSaver(conn)
+checkpointer = SqliteSaver(conn, serde=_serde)
 
 builder = StateGraph(BAState)
 builder.add_node('planner', planner_node)

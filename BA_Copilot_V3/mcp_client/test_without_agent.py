@@ -5,14 +5,11 @@ import sys
 # Ensure BA_Copilot_V3 is on sys.path when running from project root
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mcp_client.client_wrapper import BAMCPClient
+from mcp_client.client_wrapper import retrieve_similar_brd
 
 
 async def main():
-    mcp = BAMCPClient()
-
-    context = await mcp.retrieve_similar_brd("build customer portal")
-
+    context = retrieve_similar_brd("build customer portal")
     print(context)
 
 

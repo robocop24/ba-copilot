@@ -1,9 +1,10 @@
 import json
+import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
-from graph.graph import graph
 from document.document_processor import DocumentProcessor
+from graph.graph import graph
 from langgraph.types import Command
 
 
@@ -19,6 +20,14 @@ def _serialize_state(state_values: dict) -> dict:
 
 
 def main():
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+    # Silence noisy third-party loggers
+    for lib in ("httpx", "httpcore", "openai", "langchain", "langgraph"):
+        logging.getLogger(lib).setLevel(logging.WARNING)
     
     processor = DocumentProcessor()
     requirement = processor.extract_text("input/requirement.txt")
@@ -35,7 +44,7 @@ def main():
         "iteration": 0,
         "max_iterations": 3
         }, config=config):
-        print(f"\nEvent: {event}")
+        print("Event: ")
     
     # Check if workflow was interrupted
     snapshot = graph.get_state(config)
@@ -50,14 +59,14 @@ def main():
         )
         
     
-    print("\nRESULT")
-    print("="*50)
+    # print("\nRESULT")
+    # print("="*50)
     final_state = graph.get_state(config)
-    print(final_state.values)
+    # print(final_state.values)
     
     # Save report to output folder as JSON
     os.makedirs("output", exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
     report_path = f"output/ba_report_{timestamp}.json"
     
     serialized = _serialize_state(final_state.values)
@@ -65,7 +74,7 @@ def main():
         json.dump(serialized, f, indent=2, ensure_ascii=False)
     print(f"\nReport saved to: {report_path}")
     
-    graph.get_graph().draw_mermaid_png(output_file_path="ba_copilot_graph.png")
+    #graph.get_graph().draw_mermaid_png(output_file_path="ba_copilot_graph.png")
 
 if __name__ == "__main__":
     main()

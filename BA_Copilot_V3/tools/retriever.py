@@ -1,26 +1,17 @@
-import asyncio
-
 from langchain_core.tools import tool
-from mcp_client.client_wrapper import BAMCPClient
+from mcp_client.client_wrapper import calulate_story_points as _calulate
+from mcp_client.client_wrapper import retrieve_similar_brd as _retrieve
 
 
 @tool
-def retrieve_similar_brd(requirement:str)->str:
+def retrieve_similar_brd(requirement: str) -> str:
     """
     Retrieve similar BRD context from BA MCP Server
     """
-    
-    mcp_client = BAMCPClient()
-    
-    return asyncio.run(
-        mcp_client.retrieve_similar_brd(requirement)
-        )
-    
+    return _retrieve(requirement)
+
+
 @tool
-def calulate_story_points(complexity:str)->int:
-    """Calulate story points based on compexity"""
-    mcp_client = BAMCPClient()
-    
-    return asyncio.run(
-        mcp_client.calulate_story_points(complexity)
-        )
+def calulate_story_points(complexity: str) -> int:
+    """Calculate story points based on complexity"""
+    return _calulate(complexity)
