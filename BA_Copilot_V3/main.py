@@ -3,6 +3,7 @@ import logging
 import os
 from datetime import datetime, timezone
 
+import requests
 from document.document_processor import DocumentProcessor
 from graph.graph import graph
 from langgraph.types import Command
@@ -44,19 +45,22 @@ def main():
         "iteration": 0,
         "max_iterations": 3
         }, config=config):
-        print("Event: ")
-    
-    # Check if workflow was interrupted
+        node_name = next(iter(event.keys())) if event else "?"
+        print(f"[NODE] {node_name}")
+
+    # Loop to handle multiple interrupts (approval can fire repeatedly via refinement → planner)
+    approval_count = 0
+    max_approvals = 5
     snapshot = graph.get_state(config)
-    if snapshot.next:
+    while snapshot.next and approval_count < max_approvals:
         approval = input("Approval BA Report? (y/n): ")
         print(f"User approval: {approval}")
         graph.invoke(
-            Command(
-                resume=approval.lower()=="y"
-            ),
-            config=config
+            Command(resume=approval.lower() == "y"),
+            config=config,
         )
+        snapshot = graph.get_state(config)
+        approval_count += 1
         
     
     # print("\nRESULT")
@@ -73,8 +77,12 @@ def main():
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(serialized, f, indent=2, ensure_ascii=False)
     print(f"\nReport saved to: {report_path}")
-    
-    #graph.get_graph().draw_mermaid_png(output_file_path="ba_copilot_graph.png")
+
+    try:
+        graph.get_graph().draw_mermaid_png(output_file_path="ba_copilot_graph.png")
+        print("Graph saved to: ba_copilot_graph.png")
+    except (requests.exceptions.RequestException, ValueError):
+        print("⚠️ Could not render graph PNG (network issue — mermaid.ink unreachable)")
 
 if __name__ == "__main__":
     main()

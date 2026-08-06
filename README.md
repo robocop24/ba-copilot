@@ -82,20 +82,22 @@ python main.py                      # interactive approval prompt
 
 ## 🏗️ Architecture at a Glance
 
-### V3 ⭐ — Planner-Routed LangGraph with Tool-Calling Agent
+### V3 ⭐ — Planner-Routed LangGraph with Tool-Calling Agents
 
 ```mermaid
 graph TD
     START --> planner
 
     planner -->|analyze_requirements| analyzer
-    planner -->|gap_analysis| gap_analysis
     planner -->|done| END
 
     analyzer --> story
     analyzer --> gap_analysis
 
+    story --> acceptance_criteria
     story --> estimation
+
+    acceptance_criteria --> review
     estimation --> review
     gap_analysis --> review
 
@@ -103,9 +105,49 @@ graph TD
 
     approval -->|refinement| refinement
     approval -->|end| END
+
+    refinement --> planner
 ```
 
-The **planner** dynamically routes based on the requirement. The **analyzer** is a ReAct agent with a BRD knowledge retrieval tool. **Story** and **gap_analysis** run in parallel. Stories flow through **estimation** (story point scoring via MCP) before converging with gaps at **review**. The **approval router** enables automatic iterative refinement with an iteration cap.
+The **planner** dynamically routes based on the requirement. The **analyzer** is a ReAct agent with a BRD knowledge retrieval tool. **Story** and **gap_analysis** run in parallel after analysis. Stories fan out to **acceptance_criteria** (Given/When/Then per story) and **estimation** (story point scoring via MCP) — both run in parallel. All five artifacts converge at **review**. The **approval router** enables iterative refinement with a human-in-the-loop, looping back to **planner** until approved or max iterations reached.
+
+<details>
+<summary>📊 Sample V3 Log Output</summary>
+
+```
+17:33:00 [INFO] root: Starting workflow...
+17:33:01 [DEBUG] mcp_client.resource_cache: CACHE MISS -> ba://story_standard
+17:33:02 [INFO] mcp_client.resource_cache: [MCP] CACHED -> ba://story_standard (100 chars)
+
+[NODE] planner
+[NODE] analyzer
+[NODE] story
+[NODE] acceptance_criteria
+[NODE] estimation
+[NODE] gap_analysis
+[NODE] review
+[NODE] approval
+
+Approval BA Report? (y/n): n
+User approval: n
+
+[NODE] refinement     → loops back to planner
+[NODE] planner        → context-aware re-plan
+[NODE] analyzer
+[NODE] story
+
+[NODE] acceptance_criteria
+[NODE] estimation
+[NODE] gap_analysis
+[NODE] review
+[NODE] approval
+
+Approval BA Report? (y/n): y
+
+Report saved to: output/ba_report_20260806_120319.json
+```
+
+</details>
 
 ### V1 — Linear Agent Pipeline
 

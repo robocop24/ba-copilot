@@ -1,5 +1,5 @@
 from langchain_core.tools import tool
-from mcp_client.client_wrapper import calulate_story_points as _calulate
+from mcp_client.client_wrapper import calculate_story_points as _calculate
 from mcp_client.client_wrapper import retrieve_similar_brd as _retrieve
 
 
@@ -12,6 +12,6 @@ def retrieve_similar_brd(requirement: str) -> str:
 
 
 @tool
-def calulate_story_points(complexity: str) -> int:
-    """Calculate story points based on complexity"""
-    return _calulate(complexity)
+def calculate_story_points(complexity: str) -> int:
+    """Calculate story points based on complexity."""
+    return _calculate(complexity)

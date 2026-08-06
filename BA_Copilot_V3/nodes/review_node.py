@@ -15,6 +15,7 @@ def review_node(state):
     prompt = prompt_template.format(
         analysis=_safe_json(state.get("analysis")),
         stories=_safe_json(state.get("stories")),
+        acceptance_criteria=_safe_json(state.get("acceptance_criteria")),
         gaps=_safe_json(state.get("gaps")),
         estimation=_safe_json(state.get("estimation")),
     )

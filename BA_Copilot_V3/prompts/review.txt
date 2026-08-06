@@ -4,8 +4,9 @@ Review the following artifacts and produce a quality assessment:
 
 1. ANALYSIS — the breakdown of actors, modules, and functional requirements
 2. USER STORIES — the user stories generated from the analysis
-3. STORY ESTIMATION — story point estimates for each user story
-4. GAPS — any gaps or missing pieces identified
+3. ACCEPTANCE CRITERIA — Given/When/Then criteria for each story
+4. STORY ESTIMATION — story point estimates for each user story
+5. GAPS — any gaps or missing pieces identified
 
 Evaluate for:
 - Completeness: do the stories cover all requirements?
@@ -19,6 +20,9 @@ ANALYSIS:
 
 USER STORIES:
 {stories}
+
+ACCEPTANCE CRITERIA:
+{acceptance_criteria}
 
 STORY ESTIMATION:
 {estimation}

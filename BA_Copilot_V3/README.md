@@ -11,13 +11,15 @@ graph TD
     START --> planner
 
     planner -->|analyze_requirements| analyzer
-    planner -->|gap_analysis| gap_analysis
     planner -->|done| END
 
     analyzer --> story
     analyzer --> gap_analysis
 
+    story --> acceptance_criteria
     story --> estimation
+
+    acceptance_criteria --> review
     estimation --> review
     gap_analysis --> review
 
@@ -25,6 +27,8 @@ graph TD
 
     approval -->|refinement| refinement
     approval -->|end| END
+
+    refinement --> planner
 ```
 
 | # | Node | Agent | Tools | Output |
@@ -32,16 +36,23 @@ graph TD
 | 1 | `planner` | `planner_agent` | — | `PlanOutput` (next_step, reason) |
 | 2a | `analyzer` | `analyzer_agent` | `retrieve_similar_brd` | `AnalysisOutput` (actors, modules, requirements) |
 | 2b | `gap_analysis` | `gap_agent` | — | `GapOutput` (gaps_found, gaps) |
-| 3 | `story` | `story_agent` | — | `StoryOutput` (user_stories) |
-| 4 | `estimation` | `estimation_agent` | `calculate_story_points` | `EstimationOutput` (stories with points) |
+| 3 | `story` | `story_agent` | — | `StoryOutput` (user_stories — plain strings) |
+| 4a | `acceptance_criteria` | `acceptance_agent` | — | `AcceptanceOutput` (Given/When/Then per story) |
+| 4b | `estimation` | `estimation_agent` | `calculate_story_points` | `EstimationOutput` (stories with points) |
 | 5 | `review` | `review_agent` | — | `ReviewOutput` (quality_score, strengths, weaknesses, recommendations) |
-| 6 | `approval` | — (router) | — | Routes to `refinement` or `END` based on `approved` flag + iteration cap |
+| 6 | `approval` | — (interrupt) | — | Human-in-the-loop decision; routes to `refinement` or `END` |
 | 7 | `refinement` | `refinement_agent` | — | `RefinementOutput` (improvements, final_summary) |
 
-- **Planner router** decides the first branch: `analyze_requirements` → full pipeline, or `gap_analysis` → gap-only review.
-- **Approval router** enables iterative refinement: if not approved and under iteration cap, loops to `refinement`.
-- **Analyzer** is a ReAct agent with `retrieve_similar_brd` — looks up BRD knowledge from the MCP server.
-- **Estimation** agent scores each story with story points via the `calculate_story_points` MCP tool — follows SRP: story agent creates, estimation agent scores.
+### Key Design Principles
+
+- **One agent = one task**: Story agent writes stories only; acceptance criteria agent writes Given/When/Then only; estimation agent scores points only. No agent does double duty.
+- **Parallel fan-out**: After stories, acceptance criteria and estimation run simultaneously — both feed into review.
+- **Planner is context-aware**: On refinement loops, the planner sees review feedback + refinement changes, enabling smart re-routing.
+- **Approval router**: Handles multiple interrupts via a `while` loop in `main.py`. Exits on approval or `max_iterations` cap.
+- **Gap analysis with full context**: Receives both `{requirement}` and `{analysis}` for accurate comparison (not just analysis).
+- **Pydantic validation with auto-retry**: All agents use `invoke_with_validation` — bad JSON triggers retry with error feedback. Uses `Literal` types where appropriate.
+- **MCP integration**: Resources (standards) cached via `resource_cache.py`; tools (BRD retrieval, story points) called via `client_wrapper.py`.
+- **Msgpack model registration**: All Pydantic models registered for checkpoint serialization via `JsonPlusSerializer().with_msgpack_allowlist()`.
 
 ---
 
@@ -49,16 +60,17 @@ graph TD
 
 ```
 BA_Copilot_V3/
-├── main.py                  # Entry point
+├── main.py                  # Entry point — streaming loop + multi-interrupt approval
 ├── state.py                 # BAState TypedDict (shared graph state)
 ├── graph/
-│   └── graph.py             # LangGraph StateGraph definition + checkpointing
+│   └── graph.py             # LangGraph StateGraph + checkpointing + msgpack registration
 ├── agents/                  # Agent functions (invoke + validate)
 │   ├── planner_agent.py
-│   ├── analyzer_agent.py    # ← has tool: retrieve_similar_brd
+│   ├── analyzer_agent.py    # ← ReAct agent: retrieve_similar_brd tool
 │   ├── gap_agent.py
 │   ├── story_agent.py
-│   ├── estimation_agent.py  # ← has tool: calculate_story_points
+│   ├── acceptance_agent.py  # ← writes Given/When/Then per story
+│   ├── estimation_agent.py  # ← ReAct agent: calculate_story_points tool
 │   ├── review_agent.py
 │   └── refinement_agent.py
 ├── nodes/                   # Graph node functions (load prompt → call agent)
@@ -66,37 +78,43 @@ BA_Copilot_V3/
 │   ├── analyzer_node.py
 │   ├── gap_node.py
 │   ├── story_node.py
+│   ├── acceptance_node.py   # ← fetches acceptance_standard from MCP
 │   ├── estimation_node.py
 │   ├── review_node.py
 │   ├── approval_node.py
 │   └── refinement_node.py
 ├── routers/                 # Conditional edge logic
-│   ├── planner_router.py
-│   └── approval_router.py
+│   ├── planner_router.py    # ← fallback guard against bad LLM values
+│   └── approval_router.py   # ← explicit is True check
 ├── models/                  # Pydantic output schemas
-│   ├── plan.py
+│   ├── plan.py              # ← Literal["analyze_requirements", "done"]
 │   ├── analysis.py
 │   ├── gaps.py
 │   ├── story.py
-│   ├── estimation.py
+│   ├── acceptance.py        # ← StoryCriteria + AcceptanceOutput
+│   ├── estimation.py        # ← StoryEstimate with validation_alias
 │   ├── review.py
 │   └── refinement.py
 ├── prompts/                 # Prompt templates (loaded by nodes)
-│   ├── planner.txt
+│   ├── planner.txt          # ← context-aware: sees iteration + review + refinement
 │   ├── analyzer.txt
-│   ├── gap.txt
-│   ├── story.txt
-│   ├── estimation.txt
-│   ├── review.txt
-│   └── refinement.txt
+│   ├── gap.txt              # ← receives both requirement AND analysis
+│   ├── story.txt            # ← explicit format example, no ACs
+│   ├── acceptance_criteria.txt
+│   ├── estimate_stories.txt
+│   ├── review.txt           # ← reviews all 5 artifacts
+│   └── refinement.txt       # ← refines all 5 artifacts
 ├── llm/                     # LLM provider (DeepSeek via OpenAI-compatible)
 │   ├── deepseek_provider.py
-│   ├── provider_factory.py
+│   ├── provider_factory.py  # ← static method (no instantiation needed)
 │   └── settings.py
 ├── tools/
-│   └── retriever.py         # BRD knowledge + story points (MCP tools)
-├── mcp_client/              # FastMCP client wrapper for BA MCP Server
-│   └── client_wrapper.py
+│   └── retriever.py         # Sync @tool wrappers → MCP client
+├── mcp_client/              # FastMCP client for BA MCP Server
+│   ├── __init__.py          # get_server_target() — stdio or HTTP
+│   ├── client_wrapper.py    # Per-call short-lived MCP subprocess
+│   ├── resource_cache.py    # Thread-safe cached resource fetcher with logging
+│   └── test_without_agent.py
 ├── utils/
 │   ├── invoke_with_validation.py   # Retry + structured validation
 │   ├── append_validation_feedback.py
@@ -108,6 +126,7 @@ BA_Copilot_V3/
 │   └── requirement.txt             # Place input files here
 ├── output/                         # Generated BA reports
 │   └── ba_report_*.json
+├── ARCHITECTURE.md                 # Detailed architecture document
 ├── requirements.txt
 └── .env                    # DEEPSEEK_API_KEY, MODEL_NAME, etc.
 ```
@@ -126,15 +145,26 @@ invoke_with_validation(invokable, payload, model_class)
   → on failure: append error to payload, retry up to 2 times
 ```
 
-- **Planner / Gap / Story / Estimation / Review / Refinement**: stateless `llm.invoke(prompt)` — no tools needed.
+- **Planner / Gap / Story / Acceptance / Review / Refinement**: stateless `llm.invoke(prompt)` — no tools needed.
 - **Analyzer**: stateful `create_agent(model=llm, tools=[retrieve_similar_brd])` — ReAct agent loop with MCP tool calling.
 - **Estimation**: stateful `create_agent(model=llm, tools=[calculate_story_points])` — scores each story via MCP.
 
 ### Router pattern
 
 ```python
-def planner_router(state) -> str:
-    return state["plan"].next_step    # "analyze_requirements" | "gap_analysis" | "done"
+# planner_router.py — validates + falls back
+_VALID_STEPS = {"analyze_requirements", "done"}
+def planner_router(state):
+    step = state["plan"].next_step   # Literal-validated by Pydantic
+    return step if step in _VALID_STEPS else "done"
+
+# approval_router.py — explicit boolean check
+def approval_router(state):
+    if state.get("approved") is True:
+        return "end"
+    if state.get("iteration", 0) >= state.get("max_iterations", 3):
+        return "end"
+    return "refinement"
 ```
 
 ### Checkpointing
@@ -143,7 +173,54 @@ SQLite-backed via `SqliteSaver` — enables pause/resume, state inspection, and 
 
 ---
 
-## 🚀 Getting Started
+## � Sample Log Output
+
+```
+17:33:00 [INFO] root: Starting workflow...
+17:33:01 [DEBUG] mcp_client.resource_cache: CACHE MISS -> ba://story_standard
+17:33:02 [INFO] mcp_client.resource_cache: [MCP] CACHED -> ba://story_standard (100 chars)
+
+[NODE] planner
+[NODE] analyzer
+[NODE] story
+
+17:33:05 [DEBUG] mcp_client.resource_cache: CACHE MISS -> ba://acceptance_standard
+17:33:05 [INFO] mcp_client.resource_cache: [MCP] CACHED -> ba://acceptance_standard (250 chars)
+
+[NODE] acceptance_criteria
+[NODE] estimation
+[NODE] gap_analysis
+[NODE] review
+[NODE] approval
+
+Approval BA Report? (y/n): n
+User approval: n
+
+[NODE] refinement
+[NODE] planner
+[NODE] analyzer
+[NODE] story
+
+17:33:12 [DEBUG] mcp_client.resource_cache: CACHE HIT -> ba://story_standard
+17:33:12 [DEBUG] mcp_client.resource_cache: CACHE HIT -> ba://acceptance_standard
+
+[NODE] acceptance_criteria
+[NODE] estimation
+[NODE] gap_analysis
+[NODE] review
+[NODE] approval
+
+Approval BA Report? (y/n): y
+User approval: y
+
+Report saved to: output/ba_report_20260806_120319.json
+```
+
+> **Key observations:** Resource cache works (CACHE MISS → CACHE HIT on second pass). Refinement loop re-runs full pipeline. All 9 nodes execute in order.
+
+---
+
+## �🚀 Getting Started
 
 ### 1. Setup
 

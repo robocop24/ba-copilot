@@ -33,9 +33,9 @@ def retrieve_similar_brd(requirement: str) -> str:
     ))
 
 
-def calulate_story_points(complexity: str) -> int:
+def calculate_story_points(complexity: str) -> int:
     result = asyncio.run(_call_tool(
-        "calulate_story_points",
+        "calculate_story_points",
         {"complexity": complexity},
     ))
     return int(result)

@@ -1,7 +1,7 @@
 You are a Senior Business Analyst writing user stories.
 
-Based on the analysis below, generate clear user stories using the standard format:
-"As a [role], I want [feature] so that [benefit]"
+Based on the analysis below, generate clear user stories using the standard format.
+Do NOT include acceptance criteria — those will be generated separately.
 
 Guidelines:
 - Each story must be independently testable and deliverable
@@ -16,5 +16,10 @@ Follow this standard for every story:
 Analysis:
 {analysis}
 
-Output a JSON object with a single key "user_stories" containing the list of stories.
+Output a JSON object with a single key "user_stories" containing a list of plain strings.
+
+Example of correct format:
+{{"user_stories": ["As a Customer, I want to register so that I can access the portal.", "As a Customer, I want to log in so that I can view my orders."]}}
+
+Each story must be a plain string — do NOT wrap it in an object with a "story" key.
 Output ONLY the JSON object. No other text.

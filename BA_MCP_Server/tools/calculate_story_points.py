@@ -1,5 +1,5 @@
-def calulate_story_points(complexity:str)->int:
-    """Calculate story points based on complexity"""
+def calculate_story_points(complexity: str) -> int:
+    """Calculate story points based on complexity."""
     
     try:
         complexity_mapping = {

@@ -1,5 +1,6 @@
-from llm.settings import MODEL_PROVIDER
 from llm.deepseek_provider import DeepSeekProvider
+from llm.settings import MODEL_PROVIDER
+
 
 class ProviderFactory:
 

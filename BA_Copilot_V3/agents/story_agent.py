@@ -3,7 +3,7 @@ from models.story import StoryOutput
 from utils.invoke_with_validation import invoke_with_validation
 
 
-def story_agent(prompt):
+def story_agent(prompt: str) -> StoryOutput:
     
     llm = ProviderFactory.get_llm()
     

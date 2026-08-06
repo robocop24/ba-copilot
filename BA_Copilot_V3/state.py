@@ -1,5 +1,6 @@
 from typing import TypedDict
 
+from models.acceptance import AcceptanceOutput
 from models.analysis import AnalysisOutput
 from models.estimation import EstimationOutput
 from models.gaps import GapOutput
@@ -14,6 +15,7 @@ class BAState(TypedDict):
     plan: PlanOutput
     analysis: AnalysisOutput
     stories: StoryOutput
+    acceptance_criteria: AcceptanceOutput
     estimation: EstimationOutput
     gaps: GapOutput
     review:ReviewOutput

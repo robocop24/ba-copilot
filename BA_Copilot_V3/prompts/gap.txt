@@ -10,7 +10,10 @@ Look for:
 - Stakeholder roles or actors not identified
 - Regulatory or compliance considerations
 
-Analysis Output:
+ORIGINAL REQUIREMENT:
+{requirement}
+
+ANALYSIS OUTPUT:
 {analysis}
 
 Output a JSON object with these keys:

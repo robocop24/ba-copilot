@@ -36,16 +36,16 @@ async def main():
             print(f"\n  retrieve_similar_brd({query!r}):")
             print(f"  {text[:200]}...")
 
-        # --- calulate_story_points ---
+        # --- calculate_story_points ---
         for complexity in ["low", "medium", "high", "very_high", "invalid"]:
             try:
                 result = await client.call_tool(
-                    "calulate_story_points", {"complexity": complexity}
+                    "calculate_story_points", {"complexity": complexity}
                 )
                 text = getattr(result.content[0], "text", str(result.content[0]))
-                print(f"  calulate_story_points({complexity!r}) → {text}")
+                print(f"  calculate_story_points({complexity!r}) → {text}")
             except Exception as e:
-                print(f"  calulate_story_points({complexity!r}) → ERROR: {e}")
+                print(f"  calculate_story_points({complexity!r}) → ERROR: {e}")
 
         # --- load_requirement ---
         print("\n  --- load_requirement ---")

@@ -2,7 +2,7 @@
 
 ## Overview
 
-V3 is a **LangGraph StateGraph** that orchestrates a multi-agent Business Analyst workflow. It uses a planner-router for dynamic branching, a ReAct tool-calling agent for analysis enrichment, parallel fan-out for stories + gap analysis, and an approval router for iterative refinement.
+V3 is a **LangGraph StateGraph** that orchestrates a multi-agent Business Analyst workflow. It uses a planner-router for dynamic branching, a ReAct tool-calling agent for analysis enrichment, parallel fan-out for stories → acceptance criteria + estimation, and an approval router for iterative refinement with human-in-the-loop.
 
 ---
 
@@ -19,28 +19,31 @@ graph TD
         AN[analyzer<br/>🔧 tool: retrieve_similar_brd]
         G[gap_analysis]
         S[story]
+        AC[acceptance_criteria]
+        EST[estimation<br/>🔧 tool: calculate_story_points]
         R[review]
         AP[approval]
         RF[refinement]
     end
 
     subgraph Output
-        O[BAState<br/>plan + analysis + stories + gaps<br/>+ review + refinement + approved]
+        O[BAState<br/>plan + analysis + stories + ACs<br/>+ estimation + gaps + review<br/>+ refinement + approved]
     end
 
     A --> P
     P -->|planner_router| AN
-    P -->|planner_router| G
     P -->|planner_router| END
     AN --> S
     AN --> G
-    S --> R
+    S --> AC
+    S --> EST
+    AC --> R
+    EST --> R
     G --> R
     R --> AP
     AP -->|approval_router| RF
     AP -->|approval_router| END
-    RF --> S
-    RF --> G
+    RF --> P
     R --> O
 ```
 
@@ -54,11 +57,14 @@ class BAState(TypedDict):
     plan: PlanOutput
     analysis: AnalysisOutput
     stories: StoryOutput
+    acceptance_criteria: AcceptanceOutput
+    estimation: EstimationOutput
     gaps: GapOutput
     review: ReviewOutput
     refinement: RefinementOutput
     approved: bool | None
     iteration: int
+    max_iterations: int
 ```
 
 - **TypedDict** — typed dictionary shared across all graph nodes.
@@ -69,10 +75,12 @@ class BAState(TypedDict):
 
 | Model | Fields |
 |-------|--------|
-| `PlanOutput` | `next_step`, `reason` |
+| `PlanOutput` | `next_step: Literal["analyze_requirements", "done"]`, `reason` |
 | `AnalysisOutput` | `actors`, `modules`, `requirements` |
 | `GapOutput` | `gaps_found`, `gaps` |
-| `StoryOutput` | `user_stories` |
+| `StoryOutput` | `user_stories: list[str]` |
+| `AcceptanceOutput` | `criteria: list[StoryCriteria]` |
+| `EstimationOutput` | `estimates: list[StoryEstimate]` |
 | `ReviewOutput` | `quality_score`, `strengths`, `weaknesses`, `recommendations` |
 | `RefinementOutput` | `improvements`, `final_summary` |
 
@@ -99,13 +107,14 @@ def invoke_with_validation(invokable, payload, model_class, max_attempts=2):
 
 | Agent | Invokable | Tools |
 |-------|-----------|-------|
-| planner, gap, story, review, refinement | `ChatOpenAI` instance | — |
+| planner, gap, story, acceptance, review, refinement | `ChatOpenAI` instance | — |
 | **analyzer** | `create_agent(model=llm, tools=[retrieve_similar_brd])` | ✅ ReAct agent |
+| **estimation** | `create_agent(model=llm, tools=[calculate_story_points])` | ✅ ReAct agent |
 
 ### Why two types?
 
-- **Stateless agents** (planner, gap, story, review, refinement): one-shot `llm.invoke(prompt)` — cheaper, faster. No tools needed.
-- **Stateful agent** (analyzer): `create_agent` wraps the LLM in a ReAct loop (`model → tools → model`). The agent can call `retrieve_similar_brd` to fetch BRD knowledge, then incorporate results into its final output.
+- **Stateless agents** (planner, gap, story, acceptance, review, refinement): one-shot `llm.invoke(prompt)` — cheaper, faster. No tools needed.
+- **Stateful agents** (analyzer, estimation): `create_agent` wraps the LLM in a ReAct loop (`model → tools → model`).
 
 ---
 
@@ -114,27 +123,29 @@ def invoke_with_validation(invokable, payload, model_class, max_attempts=2):
 ### Planner Router
 
 ```python
+_VALID_STEPS = {"analyze_requirements", "done"}
+
 def planner_router(state) -> str:
-    return state["plan"].next_step   # "analyze_requirements" | "gap_analysis" | "done"
+    step = state["plan"].next_step   # Literal-validated by Pydantic
+    if step not in _VALID_STEPS:
+        return "done"                # defense-in-depth fallback
+    return step
 ```
 
-The planner LLM decides the first step. The router maps strings to nodes:
-- `"analyze_requirements"` → `analyzer` node
-- `"gap_analysis"` → `gap_analysis` node
-- `"done"` → `END`
+The planner LLM decides the first step. The `PlanOutput` model uses `Literal["analyze_requirements", "done"]` for validation. The router adds a defense-in-depth guard.
 
 ### Approval Router
 
 ```python
 def approval_router(state) -> str:
-    if state.get("approved"):
+    if state.get("approved") is True:          # explicit boolean check
         return "end"
-    if state.get("iteration", 0) >= 3:
-        return "end"     # cap reached
+    if state.get("iteration", 0) >= state.get("max_iterations", 3):
+        return "end"
     return "refinement"
 ```
 
-Enables automatic iterative refinement. If the review flags issues (`approved=False`), the workflow loops through refinement → story/gap → review until approved or the iteration cap is hit.
+Enables iterative refinement with human-in-the-loop. If the user rejects (`approved=False` or `None`), the workflow loops: `refinement → planner → analyzer → ... → approval` until approved or the iteration cap is reached.
 
 ---
 
@@ -166,12 +177,14 @@ Prompts are plain `.txt` files loaded by `prompt_loader.py`. Each node formats i
 
 | Prompt | Format Keys | Loaded By |
 |--------|------------|-----------|
-| `planner.txt` | `{requirement}` | `planner_node` |
+| `planner.txt` | `{requirement}`, `{iteration}`, `{max_iterations}`, `{review_context}`, `{refinement_context}` | `planner_node` |
 | `analyzer.txt` | `{requirement}` | `analyzer_node` |
 | `gap.txt` | `{requirement}`, `{analysis}` | `gap_node` |
-| `story.txt` | `{analysis}` | `story_node` |
-| `review.txt` | `{analysis}`, `{stories}`, `{gaps}` | `review_node` |
-| `refinement.txt` | `{analysis}`, `{stories}`, `{gaps}`, `{review}` | `refinement_node` |
+| `story.txt` | `{analysis}`, `{story_standard}` | `story_node` |
+| `acceptance_criteria.txt` | `{stories}`, `{acceptance_standard}` | `acceptance_node` |
+| `estimate_stories.txt` | `{stories}` | `estimation_node` |
+| `review.txt` | `{analysis}`, `{stories}`, `{acceptance_criteria}`, `{estimation}`, `{gaps}` | `review_node` |
+| `refinement.txt` | `{analysis}`, `{stories}`, `{acceptance_criteria}`, `{estimation}`, `{gaps}`, `{review}` | `refinement_node` |
 
 ---
 
@@ -179,12 +192,23 @@ Prompts are plain `.txt` files loaded by `prompt_loader.py`. Each node formats i
 
 ```python
 conn = sqlite3.connect('ba_copilot_v3.db', check_same_thread=False)
-checkpointer = SqliteSaver(conn)
+_serde = JsonPlusSerializer().with_msgpack_allowlist([
+    ("models.plan", "PlanOutput"),
+    ("models.analysis", "AnalysisOutput"),
+    ("models.story", "StoryOutput"),
+    ("models.acceptance", "AcceptanceOutput"),
+    ("models.estimation", "EstimationOutput"),
+    ("models.gaps", "GapOutput"),
+    ("models.review", "ReviewOutput"),
+    ("models.refinement", "RefinementOutput"),
+])
+checkpointer = SqliteSaver(conn, serde=_serde)
 graph = builder.compile(checkpointer=checkpointer)
 ```
 
 - **SQLite-backed** — survives restarts.
 - **Thread-ID scoped** — `config={"configurable": {"thread_id": "portal_project_v3"}}` isolates runs.
+- **Msgpack model registration** — all Pydantic models registered via `with_msgpack_allowlist()` for proper serialization.
 - **Monkey-patched `JsonPlusSerializer`** — adds missing `dumps`/`loads` methods for metadata serialization.
 
 ---

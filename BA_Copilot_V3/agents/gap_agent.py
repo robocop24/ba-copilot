@@ -1,6 +1,7 @@
-from models.gaps import GapOutput
 from llm.provider_factory import ProviderFactory
+from models.gaps import GapOutput
 from utils.invoke_with_validation import invoke_with_validation
+
 
 def gap_agent(prompt:str)->GapOutput:
     

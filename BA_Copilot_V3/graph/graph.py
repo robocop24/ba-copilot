@@ -22,12 +22,14 @@ _serde = JsonPlusSerializer().with_msgpack_allowlist([
     ("models.plan", "PlanOutput"),
     ("models.analysis", "AnalysisOutput"),
     ("models.story", "StoryOutput"),
+    ("models.acceptance", "AcceptanceOutput"),
     ("models.estimation", "EstimationOutput"),
     ("models.gaps", "GapOutput"),
     ("models.review", "ReviewOutput"),
     ("models.refinement", "RefinementOutput"),
 ])
 
+from nodes.acceptance_node import acceptance_node
 from nodes.analyzer_node import analyzer_node
 from nodes.approval_node import approval_node
 from nodes.estimation_node import estimation_node
@@ -48,6 +50,7 @@ builder.add_node('planner', planner_node)
 builder.add_node('analyzer', analyzer_node)
 builder.add_node('gap_analysis', gap_node)
 builder.add_node('story', story_node)
+builder.add_node('acceptance_criteria', acceptance_node)
 builder.add_node('estimation', estimation_node)
 builder.add_node('review', review_node)
 builder.add_node('approval', approval_node)
@@ -59,22 +62,24 @@ builder.add_conditional_edges(
     planner_router,
     {
         "analyze_requirements": "analyzer",
-        "gap_analysis": "gap_analysis",
         "done": END,
     }
 )
 builder.add_edge('analyzer', 'story')
 builder.add_edge('analyzer', 'gap_analysis')
-builder.add_edge('story','estimation')
-builder.add_edge('estimation','review')
-builder.add_edge('gap_analysis','review')
-builder.add_edge('review', "approval")
+builder.add_edge('story', 'acceptance_criteria')
+builder.add_edge('story', 'estimation')
+builder.add_edge('acceptance_criteria', 'review')
+builder.add_edge('estimation', 'review')
+builder.add_edge('gap_analysis', 'review')
+builder.add_edge('review', 'approval')
 builder.add_conditional_edges(
-    'approval', 
+    'approval',
     approval_router,
     {
-        "refinement":"refinement",
-        "end":END
+        "refinement": "refinement",
+        "end": END,
     })
+builder.add_edge('refinement', 'planner')
 
 graph = builder.compile(checkpointer=checkpointer)
