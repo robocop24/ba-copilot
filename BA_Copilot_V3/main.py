@@ -2,11 +2,14 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 
 import requests
 from document.document_processor import DocumentProcessor
 from graph.graph import graph
 from langgraph.types import Command
+
+BASE_DIR = Path(__file__).parent
 
 
 def _serialize_state(state_values: dict) -> dict:
@@ -31,7 +34,7 @@ def main():
         logging.getLogger(lib).setLevel(logging.WARNING)
     
     processor = DocumentProcessor()
-    requirement = processor.extract_text("input/requirement.txt")
+    requirement = processor.extract_text(BASE_DIR / "input/requirement.txt")
     config={
             "configurable":{
                 "thread_id":"portal_project_v3"
@@ -69,9 +72,10 @@ def main():
     # print(final_state.values)
     
     # Save report to output folder as JSON
-    os.makedirs("output", exist_ok=True)
+    output_dir = BASE_DIR / "output"
+    output_dir.mkdir(exist_ok=True)
     timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
-    report_path = f"output/ba_report_{timestamp}.json"
+    report_path = str(output_dir / f"ba_report_{timestamp}.json")
     
     serialized = _serialize_state(final_state.values)
     with open(report_path, "w", encoding="utf-8") as f:
@@ -79,7 +83,7 @@ def main():
     print(f"\nReport saved to: {report_path}")
 
     try:
-        graph.get_graph().draw_mermaid_png(output_file_path="ba_copilot_graph.png")
+        graph.get_graph().draw_mermaid_png(output_file_path=str(BASE_DIR / "ba_copilot_graph.png"))
         print("Graph saved to: ba_copilot_graph.png")
     except (requests.exceptions.RequestException, ValueError):
         print("⚠️ Could not render graph PNG (network issue — mermaid.ink unreachable)")

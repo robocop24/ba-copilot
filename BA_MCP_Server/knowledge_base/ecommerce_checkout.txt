@@ -1,0 +1,104 @@
+# E-Commerce — Checkout & Order Management
+
+## 1. Overview
+The E-Commerce Checkout module orchestrates the complete purchase flow from cart review through payment confirmation and order creation. It is designed for high conversion, supporting guest checkout, one-click reorder, multi-currency pricing, and real-time inventory validation.
+
+## 2. Functional Requirements
+
+### 2.1 Shopping Cart
+- Persistent cart: items saved across sessions for authenticated users; local storage for guests (30-day TTL).
+- Cart merging: guest cart merged into user cart on login; quantity conflicts resolved by keeping the higher quantity.
+- Real-time price calculation: item price, quantity, discounts, promotions, taxes, shipping recalculated on every cart mutation.
+- Cart abandonment triggers: email reminder after 1 hour / 24 hours of inactivity with cart link.
+- Stock reservation: items reserved for 15 minutes once user enters checkout flow; released on expiry or cart abandonment.
+- Cart sharing: generate shareable cart link (read-only) for B2B purchasing agents.
+
+### 2.2 Checkout Flow
+- Multi-step checkout: Shipping → Payment → Review → Confirmation (progress indicator at top).
+- Guest checkout: no account required; email collected for order confirmation and tracking.
+- Express checkout: Apple Pay, Google Pay, PayPal Express for 2-click purchase.
+- Address autocomplete: Google Places API or equivalent for shipping/billing address.
+- Shipping methods: standard (5-7 days), express (2-3 days), overnight (next day); real-time carrier rates.
+- In-store pickup: select store location, show availability, generate pickup QR code.
+- Order notes: free-text field for delivery instructions, gift messages.
+- Promo codes: single-use, multi-use, minimum order threshold, category/product restrictions, stacking rules.
+
+### 2.3 Order Processing
+- Order number generation: sequential with store prefix (e.g., STORE-20240001); globally unique.
+- Order statuses: Pending → Confirmed → Processing → Shipped → Delivered | Cancelled | Refunded | Partially Refunded.
+- Inventory deduction: atomic decrement on order confirmation; rollback on cancellation.
+- Backorder handling: partial fulfillment with backorder status; customer notification with ETA.
+- Digital goods: immediate delivery via download link / license key on payment confirmation.
+- Order modification window: 30 minutes post-placement for address change or cancellation; after that, flows through support.
+
+### 2.4 Shipping & Fulfillment
+- Multi-carrier integration: UPS, FedEx, DHL, USPS with real-time rate quotes.
+- Dimensional weight pricing: box packing algorithm selects optimal packaging.
+- Multi-warehouse routing: order split across warehouses based on inventory proximity to destination.
+- Tracking: auto-push tracking number to customer; carrier tracking page embedded in portal.
+- International shipping: customs documentation generation (commercial invoice, CN22/CN23); duty and tax estimation at checkout.
+- Delivery exceptions: automated notification on delay, failed delivery, or address issue.
+
+### 2.5 Returns & Exchanges (RMA)
+- Self-service return initiation from order history.
+- Return window: 30 days from delivery (configurable by product category).
+- Return reasons: defective, wrong item, no longer needed, size/fit, not as described.
+- Return label generation: prepaid label (deducted from refund) or drop-off QR code.
+- Exchange workflow: cross-ship new item immediately on exchange request (requires payment method hold).
+- Refund trigger: auto-issued on return receipt scan at carrier.
+
+### 2.6 Order Communication
+- Order confirmation: email + SMS (opt-in) immediately on placement.
+- Shipping confirmation: email with tracking link.
+- Delivery confirmation: email with delivery photo (where available).
+- Delay notification: proactive email if shipment misses ETA.
+- Review request: email 7 days post-delivery; integrated with review platform.
+- Reorder prompt: 30/60/90 days post-delivery for consumable products.
+
+## 3. Non-Functional Requirements
+
+### 3.1 Performance
+- Cart API response: ≤ 100ms (p95).
+- Checkout page load: ≤ 2 seconds (p95) including address autocomplete and shipping rate fetch.
+- Payment processing: ≤ 500ms for token exchange; ≤ 3 seconds end-to-end from "Place Order" click to confirmation page.
+- Order confirmation email: delivered ≤ 60 seconds post-payment (p99).
+- Concurrent checkout capacity: 5,000 simultaneous checkouts during peak (Black Friday / Cyber Monday).
+
+### 3.2 Security
+- PCI-DSS Level 1: all payment data handled via hosted fields or drop-in iframe; SAQ-A compliant.
+- 3D Secure 2 (3DS2): enforced for all card transactions in EEA; risk-based for other regions.
+- Address Verification Service (AVS) and Card Verification Value (CVV) checks on all card payments.
+- CSRF protection on all state-changing endpoints.
+- Rate limiting: 10 order placement attempts per session per hour.
+
+### 3.3 Availability
+- Checkout uptime: 99.99% (SLA); revenue-critical path.
+- Degraded mode: if carrier API is unavailable, show cached flat-rate estimates.
+- Queue-based order processing: orders accepted even if downstream fulfillment systems are degraded.
+- Disaster recovery: RTO 5 minutes, RPO 1 minute for order data.
+
+### 3.4 Data & Analytics
+- Checkout funnel analytics: step-by-step drop-off tracking.
+- A/B testing: checkout flow variations via feature flags (e.g., single-page vs multi-step).
+- Conversion metrics: cart-to-order rate, abandonment rate, recovery rate.
+- Fraud analytics: transaction risk scoring integrated with payment gateway and third-party fraud detection.
+
+## 4. Integrations
+- Payment Gateway: Stripe / Braintree / Adyen for payment tokenization and processing.
+- Tax Engine: Avalara for real-time sales tax calculation at checkout.
+- Shipping: EasyPost / Shippo for multi-carrier rate aggregation and label generation.
+- Inventory: Real-time inventory service with stock reservation and atomic deduction.
+- Email: SendGrid for transactional order emails.
+- SMS: Twilio for shipping updates.
+- Fraud: Sift Science / Forter for transaction risk assessment.
+- Analytics: Google Analytics Enhanced Ecommerce, Segment.
+- CRM: Salesforce / HubSpot for order-anchored customer profile enrichment.
+
+## 5. Error Handling & Edge Cases
+- Inventory race condition: if stock depletes between cart add and checkout, show "Only X remaining — quantity adjusted" and allow proceed with available quantity.
+- Payment declined: preserve cart state; surface generic decline message; suggest alternative payment methods.
+- Shipping to PO Box where carrier doesn't deliver: validate address type and block with clear message.
+- Expired promo code: surface gracefully in cart; do not block checkout.
+- Session expiry during checkout: on re-authentication, restore cart and resume at last completed step.
+- Price change during checkout: if price changes while user is in checkout (flash sale ends), show "Price updated" with accept/decline option.
+- Duplicate order: idempotency key on payment + order creation prevents duplicates from double-click or network retry.

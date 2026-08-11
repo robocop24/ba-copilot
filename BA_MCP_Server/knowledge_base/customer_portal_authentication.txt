@@ -1,0 +1,99 @@
+# Customer Portal — Authentication & Access Control
+
+## 1. Overview
+The Customer Portal Authentication module governs how users register, log in, and maintain secure sessions. It enforces organization-wide identity and access management (IAM) policies while delivering a frictionless user experience.
+
+## 2. Functional Requirements
+
+### 2.1 User Registration
+- Self-service registration via email or social login (Google, Microsoft, Apple).
+- Email verification required before first login; verification link expires after 24 hours.
+- Duplicate email detection with friendly "Already registered? Sign in" prompt.
+- Progressive profiling: collect minimal fields at sign-up (email, password, full name) and enrich the profile post-activation.
+
+### 2.2 Login
+- Standard login: email + password.
+- Social login: OAuth 2.0 / OpenID Connect (Google, Microsoft, Apple).
+- Single Sign-On (SSO): SAML 2.0 for enterprise customers; supports Azure AD, Okta, PingIdentity.
+- Passwordless login option: magic link sent to verified email, valid for 10 minutes, single-use.
+
+### 2.3 Password Policy
+- Minimum 12 characters.
+- Must contain: uppercase letter, lowercase letter, digit, and special symbol.
+- No more than 2 consecutive identical characters.
+- Must not contain the user's first name, last name, or email prefix.
+- Password history: last 5 passwords cannot be reused.
+- Password expiry: 90 days for internal users, 180 days for external customers (configurable).
+
+### 2.4 Multi-Factor Authentication (MFA)
+- TOTP-based (Time-based One-Time Password) via authenticator apps (Google Authenticator, Microsoft Authenticator, Authy).
+- SMS fallback with rate limiting (max 3 SMS codes per hour).
+- MFA enrollment: mandatory on first login; user can designate a "trusted device" for 30 days.
+- Step-up authentication: re-prompt MFA for sensitive actions (change password, change email, delete account).
+
+### 2.5 Session Management
+- Idle timeout: 15 minutes of inactivity.
+- Absolute timeout: 8 hours regardless of activity.
+- Concurrent session limit: 3 active sessions per user; oldest session evicted on breach.
+- Session fixation protection: regenerate session token on login, role change, and password change.
+- "Remember Me": extends absolute timeout to 30 days on trusted devices via secure, rotated persistent cookie.
+
+### 2.6 Password Reset
+- Self-service via "Forgot Password" link on login page.
+- Email verification link sent to registered email; link valid for 30 minutes, single-use.
+- Security question challenge before reset (optional, admin-configurable).
+- Post-reset: all existing sessions invalidated; user forced to re-authenticate.
+
+### 2.7 Account Lockout & Brute-Force Protection
+- 5 consecutive failed login attempts → 30-minute account lockout.
+- Lockout counter resets on successful login or password reset.
+- IP-based rate limiting: 20 failed attempts per IP per minute.
+- CAPTCHA (reCAPTCHA v3) triggered after 3 failed attempts.
+- Admin notification on account lockout (optional).
+
+### 2.8 Role-Based Access Control (RBAC)
+- Roles: Customer, Manager, Admin, Super Admin.
+- Permissions tied to roles; no direct user-to-permission assignment.
+- Manager: can view team members' orders and activity.
+- Admin: full user management, configuration, and reporting access.
+- Super Admin: tenant-level administration, audit log access, API key management.
+
+## 3. Non-Functional Requirements
+
+### 3.1 Security
+- All credentials transmitted over TLS 1.3 exclusively.
+- Passwords hashed with bcrypt (cost factor ≥ 12) or Argon2id.
+- Secrets (API keys, tokens) encrypted at rest with AES-256-GCM.
+- OWASP Top 10 mitigations in place (XSS, CSRF, SQLi, etc.).
+- Penetration testing: annual third-party assessment required.
+
+### 3.2 Performance
+- Login response time ≤ 500ms (p95).
+- MFA code delivery ≤ 5 seconds (p99).
+- Session validation ≤ 10ms (p95).
+- System must support 10,000 concurrent authentication requests.
+
+### 3.3 Availability
+- Authentication service uptime: 99.99% (SLA).
+- Graceful degradation: if MFA provider is unreachable, allow TOTP-only fallback.
+- Disaster recovery: RTO 15 minutes, RPO 5 minutes.
+
+### 3.4 Compliance
+- GDPR: right to erasure, data portability, consent management.
+- CCPA: opt-out of data sale, data access requests.
+- SOC 2 Type II: access control, monitoring, and audit logging.
+- WCAG 2.1 AA accessibility for all authentication screens.
+
+## 4. Integrations
+- Identity Provider (IdP): Azure AD, Okta for SSO.
+- Email Service: SendGrid (primary), Amazon SES (fallback).
+- SMS Provider: Twilio.
+- SIEM: Splunk for security event monitoring.
+- Feature Flags: LaunchDarkly for gradual rollout of new auth features.
+
+## 5. Error Handling & Edge Cases
+- Stale CSRF token: re-render login form with fresh token; log event.
+- Expired MFA code: clear input and show "Code expired — request a new one."
+- Email delivery failure: queue for retry (exponential backoff, max 5 attempts); notify user to try again.
+- Simultaneous password reset requests: only the most recent link is valid.
+- Deactivated user attempting login: show generic "Invalid credentials" (do not reveal account status).

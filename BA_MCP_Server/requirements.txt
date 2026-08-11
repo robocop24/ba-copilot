@@ -1,0 +1,7 @@
+# FastMCP server framework
+fastmcp
+
+# RAG pipeline dependencies
+sentence-transformers>=3.0
+faiss-cpu>=1.9
+numpy>=1.26,<2

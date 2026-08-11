@@ -1,0 +1,112 @@
+# Insurance Claims — Processing & Management System
+
+## 1. Overview
+The Insurance Claims Processing System manages the end-to-end lifecycle of insurance claims — from First Notice of Loss (FNOL) through investigation, evaluation, settlement, and closure. The system supports multiple lines of business (auto, property, health, life) and integrates with third-party data providers, repair networks, and payment systems.
+
+## 2. Functional Requirements
+
+### 2.1 First Notice of Loss (FNOL)
+- Multi-channel intake: web portal, mobile app, phone (agent-assisted), email, chat.
+- Claim type selection: auto (collision, comprehensive, liability), property (fire, theft, water, natural disaster), health (inpatient, outpatient, pharmacy), life (death, critical illness, disability).
+- Policy lookup: auto-fetch by policy number, name + DOB, or phone number.
+- Incident details: date/time, location (geocoded), description, involved parties, witnesses, police report upload.
+- Photo/video upload: in-browser capture or file upload; auto-compression and EXIF validation.
+- Claim number: auto-generated on FNOL submission; format CLAIM-YYYY-NNNNNN.
+- Duplicate detection: fuzzy match on policy + incident date + incident type to flag potential duplicates at submission.
+
+### 2.2 Claim Triage & Assignment
+- Severity scoring: ML-based triage model scores claims on complexity, potential exposure, and fraud risk.
+- Auto-adjudication: low-severity, low-value claims (≤ $2,500) eligible for straight-through processing without human review.
+- Assignment rules: skill-based routing (adjuster specialty, language, workload); geographical routing (jurisdiction, state license).
+- SLA assignment: based on claim type and severity (e.g., auto glass ≤ 24h, property fire ≤ 48h for initial contact).
+
+### 2.3 Investigation & Documentation
+- Damage assessment: integrated with photo-estimation AI for auto and property claims.
+- Third-party data: auto-pull police reports, weather data, vehicle history (Carfax), property records, medical records (with consent).
+- Statement collection: telephonic (transcribed via speech-to-text), written, video.
+- Document management: centralized claim file with version control, redaction, and audit trail.
+- Field inspection: schedule adjuster/appraiser visit; mobile app with offline capability for field documentation.
+- Estimate integration: auto repair shop estimates, contractor bids, medical bill review.
+
+### 2.4 Coverage & Liability Analysis
+- Policy validation: coverage effective date, exclusions, limits, deductibles, endorsements.
+- Liability determination: comparative negligence assessment; multi-party liability allocation.
+- Subrogation potential: flag claims with third-party recovery opportunity.
+- Coverage disputes: workflow for coverage opinion letter generation and legal review escalation.
+- Reserve setting: initial reserve within 24h of FNOL; updated on material change; actuarial review for high-exposure claims.
+
+### 2.5 Settlement & Payment
+- Payment types: claimant payment, vendor payment (repair shop, hospital), lienholder payment.
+- Payment methods: ACH/direct deposit, paper check, digital wallet.
+- Settlement calculation: damages + medical + lost wages + pain & suffering (where applicable); structured settlement option for large claims ($100k+).
+- Approval hierarchy: ≤ $5,000 adjuster authority; ≤ $50,000 supervisor; ≤ $250,000 manager; > $250,000 executive committee.
+- Payment tracking: 1099 generation for applicable payments; escheatment workflow for uncashed checks.
+- Release management: digital release form with e-signature; payment released on signed release receipt.
+
+### 2.6 Fraud Detection
+- Real-time fraud scoring: ML model evaluating 50+ indicators (claim timing, claimant history, network analysis, social media scan).
+- Red flags: claim filed within 48h of policy inception, prior claims at same address, inconsistent damage with reported cause.
+- SIU referral: automatic referral to Special Investigations Unit when fraud score exceeds threshold.
+- Link analysis: identify relationships between claimants, providers, repair shops, and legal representatives.
+- Fraud hold: ability to pause claim processing pending investigation; regulatory timeline compliance.
+
+### 2.7 Claim Communication
+- Claimant portal: real-time claim status, document upload, message adjuster, payment history.
+- Automated notifications: SMS/email on claim creation, status changes, document requests, payment issued.
+- Adjuster dashboard: workload view, overdue tasks, upcoming SLAs.
+- Provider portal: repair shops and medical providers submit estimates, bills, and status updates.
+- Regulatory notifications: state-mandated communication timelines (e.g., acknowledgment within 15 days, decision within 30 days).
+
+## 3. Non-Functional Requirements
+
+### 3.1 Security & Privacy
+- HIPAA compliance: PHI encryption at rest and in transit; access logging; minimum necessary access.
+- GDPR: data subject access requests, right to erasure, data processing agreement with third parties.
+- PCI-DSS: if payment card data collected for premium or deductible payments.
+- State insurance data security laws (e.g., NY DFS 23 NYCRR 500): risk assessment, encryption, MFA, audit trail.
+- Data masking: SSN, medical record numbers, and financial account numbers masked in UI based on role.
+
+### 3.2 Performance
+- FNOL submission: ≤ 3 seconds end-to-end.
+- Claim search: ≤ 1 second for 1M+ claim database.
+- Document upload: ≤ 10 seconds for 50MB file with progress indicator.
+- Fraud score computation: ≤ 2 seconds.
+- Payment initiation: ≤ 5 seconds including approval check and fraud re-screening.
+
+### 3.3 Availability & DR
+- Claims system uptime: 99.9% (SLA); FNOL intake 99.99%.
+- Disaster recovery: RTO 4 hours, RPO 15 minutes.
+- Offline FNOL: mobile app supports offline claim filing with sync when connectivity restored.
+- Active-active across 2 regions.
+
+### 3.4 Compliance & Audit
+- All claim decisions logged with actor, timestamp, and justification.
+- Underwriting file retention: 7 years post-claim closure (or per state requirement, whichever is longer).
+- SOX controls for reserve setting and payment authorization.
+- Fair Claims Settlement Practices regulations compliance per state.
+
+### 3.5 Scalability
+- Catastrophe (CAT) surge capacity: 10x normal claim volume during natural disasters.
+- Elastic scaling of FNOL intake, document processing, and auto-adjudication.
+- Queue depth monitoring with auto-scale triggers.
+
+## 4. Integrations
+- Policy Administration System: real-time policy data and coverage verification.
+- Billing System: premium status, deductible tracking.
+- Payment Hub: claims payments, vendor payments, EFT/ACH processing.
+- Document Management: enterprise content management with retention policies.
+- Repair Networks: auto (CCC, Mitchell), property (CoreLogic, Xactware).
+- Medical Bill Review: Fair Isaac, Mitchell, or equivalent.
+- Fraud Detection: FRISS, Shift Technology, or ISO ClaimSearch.
+- Weather Data: IBM Weather, AccuWeather for CAT event correlation.
+- Communication: Twilio (SMS), SendGrid (email), Genesys (contact center telephony).
+- Regulatory: NCCI, ISO, state insurance department electronic reporting.
+
+## 5. Error Handling & Edge Cases
+- Policy not found at FNOL: queue for manual research; notify claimant of delay with expected resolution time.
+- Duplicate claim detected: soft-block with "A claim may already exist for this incident"; route to supervisor for merge decision.
+- Coverage gap: system flags "No active coverage on date of loss"; route to coverage investigation queue; do not auto-deny.
+- Claimant deceased mid-process: freeze claim; require estate documentation; route to survivor benefits team.
+- Fraud hold expiration: if SIU does not complete investigation within regulatory timeline, auto-escalate to claims manager for override or denial decision.
+- Multi-jurisdictional claim: apply rules for each state; flag conflicts for legal review.
+- Payment failure: retry 3 times with alternative methods; if all fail, escalate to finance team and notify claimant.

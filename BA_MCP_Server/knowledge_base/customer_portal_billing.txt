@@ -1,0 +1,99 @@
+# Customer Portal — Billing & Payments
+
+## 1. Overview
+The Billing & Payments module handles all financial transactions within the Customer Portal, including one-time payments, recurring subscriptions, invoicing, and refund processing. It integrates with a PCI-DSS Level 1 compliant payment gateway to ensure cardholder data never touches the application's infrastructure.
+
+## 2. Functional Requirements
+
+### 2.1 Payment Methods
+- Credit/Debit Cards: Visa, Mastercard, American Express, Discover.
+- Digital Wallets: PayPal, Apple Pay, Google Pay.
+- Bank Transfer: ACH (US), SEPA (EU), BACS (UK).
+- Buy Now Pay Later (BNPL): Klarna, Afterpay (configurable per region).
+- Stored payment methods: tokenized card-on-file with PCI-compliant vault.
+- Payment method prioritization: user can set default and reorder methods.
+
+### 2.2 Payment Processing
+- Idempotency keys required for all payment requests to prevent duplicate charges.
+- Client-side tokenization: card details never transmitted to application servers.
+- Payment confirmation: synchronous response for card payments (≤ 2 seconds); webhook callback for bank transfers.
+- Partial captures: support for pre-auth + capture flow (e.g., hotels, rentals).
+- Payment retry logic: soft declines retried up to 3 times with exponential backoff; hard declines shown immediately.
+
+### 2.3 Subscription Billing
+- Billing cycles: weekly, monthly, quarterly, annual (prorated on upgrade/downgrade).
+- Plan management: self-service upgrade, downgrade, pause, resume, cancel.
+- Dunning management: automated retry schedule for failed payments (days 1, 3, 7, 14).
+- Invoice generation: PDF invoice auto-generated on successful payment; stored for 7 years.
+- Usage-based billing: metered components tracked hourly; aggregated and billed at cycle end.
+- Free trial: configurable duration (7, 14, 30 days); payment method required upfront; auto-converts unless cancelled.
+
+### 2.4 Invoicing
+- Automatic invoice generation for every successful charge.
+- Invoice format: PDF with company branding, tax breakdown, and line items.
+- Invoice delivery: email + available in portal under Billing History.
+- Credit notes: auto-generated for refunds and adjustments.
+- Tax calculation: VAT (EU), GST (AU/NZ/IN), Sales Tax (US) based on customer location and tax ID.
+- Tax ID validation: VIES for EU VAT, custom validation for other regions.
+
+### 2.5 Refunds & Disputes
+- Refund window: 30 days from payment date (configurable by product).
+- Partial refunds: support for line-item-level refunds.
+- Refund processing time: card refunds 5-10 business days; PayPal instant.
+- Chargeback handling: automated notification to admin; attach evidence via payment gateway API.
+- Refund reason codes: mandatory selection (duplicate, product not as described, service not received, etc.) for analytics.
+
+### 2.6 Currencies & Localization
+- Supported currencies: USD, EUR, GBP, CAD, AUD, JPY, CHF, SEK, NOK, DKK, NZD, SGD, HKD.
+- Currency conversion: real-time rates via provider API (e.g., ECB, Open Exchange Rates).
+- Multi-currency pricing: product prices configurable per currency; fallback to base currency + conversion.
+- Localized payment methods: iDEAL (NL), Bancontact (BE), Sofort (DE/AT), etc.
+
+### 2.7 Transaction History & Reporting
+- Customer view: full transaction history with filters (date range, status, amount, payment method).
+- Admin view: dashboard with revenue metrics, churn rate, MRR/ARR, failed payment rate.
+- Export: CSV, PDF for all transaction data.
+- Audit trail: every financial event logged immutably with actor, timestamp, IP, and change details.
+
+## 3. Non-Functional Requirements
+
+### 3.1 Security & Compliance
+- PCI-DSS Level 1: cardholder data never stored, processed, or transmitted by application servers.
+- All payment API communication over TLS 1.2+ with mutual TLS where supported.
+- Webhook signature verification (HMAC-SHA256) for all payment gateway callbacks.
+- PII encryption at rest: billing address, tax ID encrypted with AES-256-GCM.
+- Access control: billing admin role segregated from general admin; audit log for all access.
+- SOX compliance: financial reporting controls, segregation of duties, change management audit.
+
+### 3.2 Performance
+- Payment initiation API response: ≤ 500ms (p95).
+- Invoice generation: ≤ 3 seconds for up to 100 line items.
+- Transaction history query: ≤ 1 second for 10k records.
+- Webhook processing: ≤ 5 seconds for acknowledgment; async processing for heavy operations.
+
+### 3.3 Availability & Resilience
+- Payment processing uptime: 99.99% (SLA); financial penalty for breach.
+- Multi-region deployment: active-active across at least 2 regions.
+- Circuit breaker: if payment gateway is degraded, queue transactions for retry; show user-friendly message.
+- Graceful degradation: if tax service is down, calculate with last-known rates and flag for review.
+
+### 3.4 Data Retention
+- Transaction records: 10 years (financial compliance).
+- Invoices: 10 years.
+- Payment method tokens: until account deletion + 90-day grace period.
+- Audit logs: 7 years.
+
+## 4. Integrations
+- Payment Gateway: Stripe (primary), Adyen (secondary for specific regions).
+- Tax Engine: Avalara / TaxJar for automated sales tax, VAT, GST.
+- Accounting: QuickBooks / NetSuite / Xero for automated ledger synchronization.
+- Email: SendGrid for invoice and receipt delivery.
+- Analytics: Segment / Snowflake for financial data warehousing.
+- Fraud Detection: Sift / Radar (Stripe) for transaction risk scoring.
+
+## 5. Error Handling
+- Insufficient funds: show "Payment declined — please try a different method"; do NOT reveal decline reason code to user.
+- Expired card: prompt to update card details; pre-fill known fields from token metadata.
+- Duplicate transaction: idempotency key collision returns original transaction result (200 OK, not 409).
+- Gateway timeout: queue for async retry; show "Payment processing — we'll confirm shortly" with push notification on resolution.
+- Currency mismatch: reject with clear error "This payment method does not support [CUR]."

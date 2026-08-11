@@ -1,5 +1,6 @@
 import json as _json
 import sqlite3
+from pathlib import Path
 
 # Monkey-patch JsonPlusSerializer to add missing dumps/loads methods
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
@@ -42,7 +43,8 @@ from routers.approval_router import approval_router
 from routers.planner_router import planner_router
 from state import BAState
 
-conn = sqlite3.connect('ba_copilot_v3.db', check_same_thread=False)
+BASE_DIR = Path(__file__).parent.parent
+conn = sqlite3.connect(str(BASE_DIR / 'ba_copilot_v3.db'), check_same_thread=False)
 checkpointer = SqliteSaver(conn, serde=_serde)
 
 builder = StateGraph(BAState)

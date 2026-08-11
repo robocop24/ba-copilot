@@ -6,7 +6,7 @@
 > - **V1** — Stable, custom orchestration + Streamlit UI
 > - **V2** — LangGraph-based with human-in-the-loop approval and SQLite checkpointing
 > - **V3** ⭐ — **Current.** Production LangGraph workflow with planner routing, tool-calling agents, auto-retry validation, and iterative refinement loop
-> - **BA MCP Server** — FastMCP server providing BRD retrieval, story point estimation, and requirement loading tools
+> - **BA MCP Server** — FastMCP server with RAG-powered BRD retrieval (FAISS + hybrid re-rank), story point estimation, and requirement loading tools
 
 ---
 
@@ -232,9 +232,12 @@ ba-copilot/
 │   ├── .env.example                │  Environment template
 │   └── README.md
 │
-├── BA_MCP_Server/                  ← FastMCP server for BA tools & knowledge
+├── BA_MCP_Server/                  ← FastMCP server with RAG-powered BRD retrieval
 │   ├── server.py                   │  FastMCP server entry point
-│   ├── tools/                      │  retrieve_similar_brd, calculate_story_points, load_requirement
+│   ├── requirements.txt            │  Python dependencies (fastmcp, FAISS, sentence-transformers)
+│   ├── rag/                        │  Two-stage RAG pipeline (chunker, embeddings, FAISS, hybrid)
+│   ├── knowledge_base/             │  4 BRD domain documents + auto-generated JSON cache
+│   ├── tools/                      │  retrieve_similar_brd (→ rag_engine), calculate_story_points, load_requirement
 │   ├── resources/                  │  BA standards, checklists, templates
 │   ├── prompts/                    │  Prompt templates (user stories, review)
 │   ├── utils/                      │  Shared utilities
