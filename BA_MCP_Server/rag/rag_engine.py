@@ -5,7 +5,7 @@ RAG Engine — encapsulates the full retrieval pipeline:
 import json
 from pathlib import Path
 
-from .chunker import load_and_chunk
+from .chunker import chunk_text
 from .embeddings import EmbeddingModel
 from .hybrid_search import HybridSearch
 from .metadata_store import MetadataStore
@@ -49,7 +49,7 @@ class RAGEngine:
         all_chunks: list[dict] = []
         for file_path in txt_files:
             metadata = self.metadata_store.extract_metadata(file_path.name)
-            for chunk in load_and_chunk(file_path):
+            for chunk in chunk_text(file_path, self.embedding_model.model):
                 all_chunks.append({
                     "text": chunk,
                     "project": metadata["project"],

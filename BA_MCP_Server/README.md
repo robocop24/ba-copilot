@@ -10,21 +10,25 @@ The `retrieve_similar_brd` tool is powered by a custom RAG engine — not mock d
 
 ```mermaid
 flowchart TD
-    A["📁 knowledge_base/\n4 BRD .txt files"] --> B["✂️ Chunker\nparagraph-based"]
-    B --> C["🏷️ Metadata Enrichment\nfilename → project + module"]
-    C --> D["💾 JSON Cache\ncached_chunks.json"]
+    subgraph Indexing["📥 Indexing (startup)"]
+        A["📁 4 BRD .txt files\n(authentication, billing, checkout, claims)"] --> B["✂️ Semantic Chunker\nsentence embedding similarity"]
+        B --> C["🏷️ Metadata Enrichment\nfilename → project + module"]
+        C --> D["💾 JSON Cache\ncached_chunks.json"]
+    end
 
-    E["❓ Query"] --> F["🔍 Query Enrichment\nkeyword → module filter"]
-    E --> G["🧮 Embedding\nall-MiniLM-L6-v2"]
+    subgraph Retrieval["🔍 Retrieval (per query)"]
+        E["❓ User Query\n'How should user login?'"] --> F["🔎 Query Enrichment\nkeyword → module filter"]
+        E --> G["🧮 SentenceTransformer\nall-MiniLM-L6-v2 (384-dim)"]
 
-    D --> H["📊 Stage 1: FAISS HNSW\nmetadata-filtered ANN"]
-    G --> H
+        D --> H["📊 Stage 1: FAISS HNSW\nANN on filtered subset → top-N candidates"]
+        G --> H
 
-    H --> I["🎯 Stage 2: Hybrid Re-Rank\n0.8 × cosine + 0.2 × keyword"]
-    G --> I
-    E --> I
+        H --> I["🎯 Stage 2: Hybrid Re-Rank\n0.8 × cosine similarity\n+ 0.2 × keyword overlap"]
+        G --> I
+        F --> I
 
-    I --> J["📋 Top-K Results"]
+        I --> J["📋 Top-3 Results → LLM Agent"]
+    end
 
     style J fill:#4CAF50,color:#fff
     style A fill:#2196F3,color:#fff
@@ -33,13 +37,14 @@ flowchart TD
 
 ### How It Works
 
-| Stage | Component | What It Does |
-|---|---|---|
-| **Indexing** | `chunker.py` | Splits documents by paragraph; caches enriched chunks as JSON |
-| **Metadata** | `metadata_store.py` | Tags chunks by project & module; filters by query keywords |
-| **Embedding** | `embeddings.py` | SentenceTransformer `all-MiniLM-L6-v2` (384-dim) |
-| **Stage 1** | `vector_store.py` + `retriever.py` | FAISS HNSW ANN — retrieves top-N candidates from filtered subset |
-| **Stage 2** | `hybrid_search.py` + `keyword_search.py` | Re-ranks candidates: 80% cosine similarity + 20% keyword overlap |
+| Stage | Component | Stack | Function |
+|---|---|---|---|
+| **Chunking** | `chunker.py` | SentenceTransformer + sklearn | Splits docs where meaning shifts (cosine < 0.5); merges undersized chunks |
+| **Metadata** | `metadata_store.py` | Custom keyword mapping | Tags chunks by domain module; enriches queries for pre-filtering |
+| **Embedding** | `embeddings.py` | `all-MiniLM-L6-v2` | 384-dim dense vectors; shared instance for chunking + retrieval |
+| **Stage 1** | `vector_store.py` + `retriever.py` | FAISS IndexHNSWFlat | Approximate nearest neighbor — fast candidate retrieval from filtered subset |
+| **Stage 2** | `hybrid_search.py` | Cosine + word-overlap | Re-ranks candidates combining semantic (80%) and lexical (20%) signals |
+| **Caching** | `rag_engine.py` | JSON + mtime check | Chunk cache auto-invalidates when source .txt files are edited |
 
 ---
 

@@ -178,6 +178,48 @@ START → retriever → analyze_requirements
 
 ---
 
+## 🧠 RAG Pipeline (MCP Server)
+
+The `retrieve_similar_brd` MCP tool uses a custom two-stage retrieval pipeline — semantic chunking, metadata filtering, FAISS HNSW ANN, and hybrid re-ranking.
+
+```mermaid
+flowchart TD
+    subgraph Indexing["📥 Indexing (startup)"]
+        A["📁 4 BRD .txt files\n(authentication, billing, checkout, claims)"] --> B["✂️ Semantic Chunker\nsentence embedding similarity"]
+        B --> C["🏷️ Metadata Enrichment\nfilename → project + module"]
+        C --> D["💾 JSON Cache\ncached_chunks.json"]
+    end
+
+    subgraph Retrieval["🔍 Retrieval (per query)"]
+        E["❓ User Query\n'How should user login?'"] --> F["🔎 Query Enrichment\nkeyword → module filter"]
+        E --> G["🧮 SentenceTransformer\nall-MiniLM-L6-v2 (384-dim)"]
+
+        D --> H["📊 Stage 1: FAISS HNSW\nANN on filtered subset → top-N candidates"]
+        G --> H
+
+        H --> I["🎯 Stage 2: Hybrid Re-Rank\n0.8 × cosine similarity\n+ 0.2 × keyword overlap"]
+        G --> I
+        F --> I
+
+        I --> J["📋 Top-3 Results → LLM Agent"]
+    end
+
+    style J fill:#4CAF50,color:#fff
+    style A fill:#2196F3,color:#fff
+    style E fill:#FF9800,color:#fff
+```
+
+| Stage | Component | Stack | Function |
+|---|---|---|---|
+| **Chunking** | `chunker.py` | SentenceTransformer + sklearn | Splits docs where meaning shifts (cosine < 0.5); merges undersized chunks |
+| **Metadata** | `metadata_store.py` | Custom keyword mapping | Tags chunks by domain module; enriches queries for pre-filtering |
+| **Embedding** | `embeddings.py` | `all-MiniLM-L6-v2` | 384-dim dense vectors; shared instance for chunking + retrieval |
+| **Stage 1** | `vector_store.py` + `retriever.py` | FAISS IndexHNSWFlat | Approximate nearest neighbor — fast candidate retrieval from filtered subset |
+| **Stage 2** | `hybrid_search.py` | Cosine + word-overlap | Re-ranks candidates combining semantic (80%) and lexical (20%) signals |
+| **Caching** | `rag_engine.py` | JSON + mtime check | Chunk cache auto-invalidates when source .txt files are edited |
+
+---
+
 ## 📂 Project Structure
 
 ```

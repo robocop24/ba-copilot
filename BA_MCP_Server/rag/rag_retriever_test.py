@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from rag.chunker import load_and_chunk
+from rag.chunker import chunk_text
 from rag.embeddings import EmbeddingModel
 from rag.hybrid_search import HybridSearch
 from rag.metadata_store import MetadataStore
@@ -23,7 +23,7 @@ for file in files:
     
     metadata = metadata_store.extract_metadata(file.name)
     
-    chunks = load_and_chunk(file)
+    chunks = chunk_text(file, embedding_model.model)
     
     for chunk in chunks:
         
