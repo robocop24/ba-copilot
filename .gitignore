@@ -10,4 +10,6 @@
 .DS_Store
 .env
 *.db
+*.db-shm
+*.db-wal
 *.json
