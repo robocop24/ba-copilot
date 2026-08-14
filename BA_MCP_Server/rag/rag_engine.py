@@ -5,6 +5,8 @@ RAG Engine — encapsulates the full retrieval pipeline:
 import json
 from pathlib import Path
 
+from observability.logger import log_event
+
 from .chunker import chunk_text
 from .embeddings import EmbeddingModel
 from .hybrid_search import HybridSearch
@@ -59,13 +61,20 @@ class RAGEngine:
 
     def retrieve(self, query: str, top_k: int = 3, candidate_k: int = 10) -> str:
         """Run the full two-stage pipeline and return formatted results."""
-
+        
+        log_event("rag", f"retrieve() query='{query[:60]}' top_k={top_k}")
+        
         # ── Query enrichment (metadata filter) ──────────────
         enrich = self.metadata_store.extract_query_metadata(query) or {}
+        
+        log_event("rag", f"query metadata: {enrich}")
 
         # ── Stage 1: metadata filter → FAISS ANN ────────────
         filtered = self.metadata_store.filter_chunks(self.all_chunks, **enrich)
+        log_event("rag", f"filtered chunks: {len(filtered)}")
+        
         if not filtered:
+            log_event("rag", "no matching chunks — fallback response")
             return (
                 f"No relevant BRD knowledge found for '{query}'.\n"
                 f"Available modules: authentication, billing, checkout, claims"
@@ -80,6 +89,7 @@ class RAGEngine:
 
         query_emb = self.embedding_model.embed_query(query)
         candidates = temp_retriever.retrieve(query_emb, top_k=min(candidate_k, len(filtered_texts)))
+        log_event("rag", f"ANN candidates: {len(candidates)}")
 
         # ── Stage 2: hybrid re-rank ─────────────────────────
         candidate_texts = [item["chunk"] for item in candidates]
@@ -87,6 +97,7 @@ class RAGEngine:
 
         hybrid = HybridSearch(candidate_texts, candidate_embeddings)
         results = hybrid.search(query, query_emb, top_k=min(top_k, len(candidate_texts)))
+        log_event("rag", f"hybrid results: {len(results)}")
 
         # ── Format output ───────────────────────────────────
         lines = [f"Top {len(results)} relevant BRD snippets for: '{query}'\n"]

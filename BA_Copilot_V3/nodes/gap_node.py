@@ -1,9 +1,12 @@
 from agents.gap_agent import gap_agent
 from utils.prompt_loader import load_prompt
 
+from observability.logger import log_event
+
 
 def gap_node(state):
-
+    
+    log_event("STORY", "Started")
     prompt_template = load_prompt("gap.txt")
     prompt = prompt_template.format(
         requirement=state["requirement"],

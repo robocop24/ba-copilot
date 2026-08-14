@@ -1,20 +1,29 @@
 from pathlib import Path
 
-from rag.chunker import chunk_text
-from rag.embeddings import EmbeddingModel
-from rag.hybrid_search import HybridSearch
-from rag.metadata_store import MetadataStore
-from rag.retriever import Retriever
-from rag.vector_store import VectorStore
+# from BA_MCP_Server.rag.rag_engine import RAGEngine
+from observability import generate_trace_id, log_event, set_trace_id
+
+# set_trace_id(generate_trace_id())
+# result = RAGEngine().retrieve("How should user login")
+# print(result)
+from .chunker import chunk_text
+from .embeddings import EmbeddingModel
+from .hybrid_search import HybridSearch
+from .metadata_store import MetadataStore
+from .retriever import Retriever
+from .vector_store import VectorStore
 
 KNOWLEDGE_BASE = Path(__file__).parent.parent / "knowledge_base"
 
 files = list(KNOWLEDGE_BASE.glob("*.txt"))
 
+embedding_model = EmbeddingModel()
 #metadata enrichment start here with overlapping chunking
 metadata_store = MetadataStore()
 
 query = "How should user login"
+set_trace_id(generate_trace_id())
+log_event("rag", f"retrieve() called with query='{query}'")
 enrich_query = metadata_store.extract_query_metadata(query)
 
 all_chunks = []
@@ -49,7 +58,6 @@ print(f"Filtered chunks: {len(filtered_chunks)}\n")
 chunks_text = [chunk["text"] for chunk in filtered_chunks]
 
 #embedding starts here
-embedding_model = EmbeddingModel()
 
 chunks_embedding = embedding_model.embed_documents(chunks_text)
 query_embedding = embedding_model.embed_query(query)
@@ -60,7 +68,7 @@ vector_store = VectorStore(chunks_text, chunks_embedding)
 
 retriver = Retriever(vector_store)
 
-retrived_chunks = retriver.retrieve(query_embedding, tok_k=10)
+retrived_chunks = retriver.retrieve(query_embedding, top_k=10)
 # vector serach by Faiss (HNSW) ends here
 
 # hybrid search starts here

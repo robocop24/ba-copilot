@@ -2,8 +2,12 @@ from agents.acceptance_agent import acceptance_agent
 from mcp_client.resource_cache import get_resource
 from utils.prompt_loader import load_prompt
 
+from observability.logger import log_event
+
 
 def acceptance_node(state):
+    
+    log_event("ACCEPTANCE", "Started")
     acceptance_standard = get_resource("ba://acceptance_standard")
 
     prompt_template = load_prompt("acceptance_criteria.txt")

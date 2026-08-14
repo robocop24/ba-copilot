@@ -3,9 +3,14 @@ from pathlib import Path
 import PyPDF2
 from docx import Document
 
+from observability.logger import log_event
+from observability.trace import generate_trace_id, set_trace_id
 
-def load_requirement(file_name: str) -> str:
+
+def load_requirement(file_name: str, trace_id: str = "") -> str:
     """Load requirement document"""
+    set_trace_id(trace_id or generate_trace_id())
+    log_event("mcp", f"load_requirement called file_name='{file_name}'")
 
     base_path = Path(__file__).parent.parent / "requirements"
 

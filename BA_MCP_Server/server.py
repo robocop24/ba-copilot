@@ -9,6 +9,10 @@ Provides tools, resources, and prompts to support business analysis workflows:
 
 Requires: pip install fastmcp
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fastmcp import FastMCP
 from prompts import registor_prompts

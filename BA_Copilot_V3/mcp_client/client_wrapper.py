@@ -14,6 +14,8 @@ import threading
 from fastmcp import Client
 
 from mcp_client import get_server_target
+from observability.logger import log_event
+from observability.trace import get_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -62,13 +64,17 @@ atexit.register(_cleanup)
 # ── Public API ───────────────────────────────────────────────────────
 def _call_tool_sync(tool_name: str, arguments: dict) -> str:
     """Thread-safe: submit to the persistent loop and block for result."""
+    
+    trace_id = get_trace_id()
+    arguments = {**arguments, "trace_id": trace_id}
+    log_event("mcp", f"calling tool '{tool_name}'")
+    
     async def _call() -> str:
-        logger.info("[MCP] Calling Tool -> %s", tool_name)
         result = await _client.call_tool(tool_name, arguments)
-        logger.info("[MCP] Tool Completed -> %s", tool_name)
         return result.content[0].text
 
     future = asyncio.run_coroutine_threadsafe(_call(), _loop)
+    log_event("mcp", f"tool '{tool_name}' completed")
     return future.result()
 
 

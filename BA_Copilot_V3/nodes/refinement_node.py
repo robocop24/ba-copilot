@@ -1,6 +1,8 @@
 from agents.refinement_agent import refinement_agent
 from utils.prompt_loader import load_prompt
 
+from observability.logger import log_event
+
 
 def _safe_json(value, fallback="N/A"):
     if value is not None and hasattr(value, "model_dump_json"):
@@ -9,6 +11,8 @@ def _safe_json(value, fallback="N/A"):
 
 
 def refinement_node(state):
+    
+    log_event("REFINEMENT", "Started")
     prompt_template = load_prompt("refinement.txt")
     prompt = prompt_template.format(
         analysis=_safe_json(state.get("analysis")),

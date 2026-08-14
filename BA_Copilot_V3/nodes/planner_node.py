@@ -1,6 +1,8 @@
 from agents.planner_agent import planner_agent
 from utils.prompt_loader import load_prompt
 
+from observability.logger import log_event
+
 
 def _safe_context(value, fallback="No prior context available."):
     """Return model dump JSON or fallback if value is None."""
@@ -10,6 +12,8 @@ def _safe_context(value, fallback="No prior context available."):
 
 
 def planner_node(state):
+    
+    log_event("PLANNER", "Started")
     prompt_template = load_prompt("planner.txt")
     prompt = prompt_template.format(
         requirement=state["requirement"],

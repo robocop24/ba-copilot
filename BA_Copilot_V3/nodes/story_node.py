@@ -2,9 +2,12 @@ from agents.story_agent import story_agent
 from mcp_client.resource_cache import get_resource
 from utils.prompt_loader import load_prompt
 
+from observability.logger import log_event
+
 
 def story_node(state):
     
+    log_event("STORY", "Started")
     story_standard = get_resource("ba://story_standard")
     
     prompt_template = load_prompt("story.txt")

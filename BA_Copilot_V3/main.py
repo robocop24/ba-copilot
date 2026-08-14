@@ -1,12 +1,17 @@
 import json
 import logging
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import requests
 from document.document_processor import DocumentProcessor
 from graph.graph import graph
 from langgraph.types import Command
+
+from observability.trace import generate_trace_id, set_trace_id
 
 BASE_DIR = Path(__file__).parent
 
@@ -39,14 +44,20 @@ def main():
                 "thread_id":"portal_project_v3"
             }
         }
+    
+    trace_id = generate_trace_id()
+    set_trace_id(trace_id)
+    
+    initial_state = {
+            "requirement": requirement,
+            "iteration": 0,
+            "max_iterations": 3,
+    }
 
     # Stream events to catch interrupts
     print("Starting workflow...")
-    for event in graph.stream({
-        "requirement": requirement,
-        "iteration": 0,
-        "max_iterations": 3
-        }, config=config):
+    for event in graph.stream(
+        initial_state, config=config):
         node_name = next(iter(event.keys())) if event else "?"
         print(f"[NODE] {node_name}")
 

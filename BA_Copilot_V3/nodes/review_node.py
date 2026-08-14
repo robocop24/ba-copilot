@@ -1,6 +1,8 @@
 from agents.review_agent import review_agent
 from utils.prompt_loader import load_prompt
 
+from observability.logger import log_event
+
 
 def _safe_json(value, fallback="N/A"):
     """Return model_dump_json or fallback if value is None/missing."""
@@ -10,7 +12,8 @@ def _safe_json(value, fallback="N/A"):
 
 
 def review_node(state):
-
+    
+    log_event("REVIEW", "Started")
     prompt_template = load_prompt("review.txt")
     prompt = prompt_template.format(
         analysis=_safe_json(state.get("analysis")),
