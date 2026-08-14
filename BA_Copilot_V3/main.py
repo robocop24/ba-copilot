@@ -1,6 +1,7 @@
 import json
 import logging
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from document.document_processor import DocumentProcessor
 from graph.graph import graph
 from langgraph.types import Command
 
+from observability.logger import log_event
 from observability.trace import generate_trace_id, set_trace_id
 
 BASE_DIR = Path(__file__).parent
@@ -56,6 +58,7 @@ def main():
 
     # Stream events to catch interrupts
     print("Starting workflow...")
+    start = time.perf_counter()
     for event in graph.stream(
         initial_state, config=config):
         node_name = next(iter(event.keys())) if event else "?"
@@ -79,6 +82,10 @@ def main():
     # print("\nRESULT")
     # print("="*50)
     final_state = graph.get_state(config)
+
+    log_event("workflow", "completed",
+              duration_ms=round((time.perf_counter() - start) * 1000, 2))
+
     # print(final_state.values)
     
     # Save report to output folder as JSON

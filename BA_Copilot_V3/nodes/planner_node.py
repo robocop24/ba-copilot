@@ -1,3 +1,5 @@
+import time
+
 from agents.planner_agent import planner_agent
 from utils.prompt_loader import load_prompt
 
@@ -23,5 +25,8 @@ def planner_node(state):
         refinement_context=_safe_context(state.get("refinement")),
     )
 
+    start = time.perf_counter()
     plan = planner_agent(prompt)
+    log_event("PLANNER", "Completed",
+              duration_ms=round((time.perf_counter() - start) * 1000, 2))
     return {"plan": plan}

@@ -1,3 +1,5 @@
+import time
+
 from agents.review_agent import review_agent
 from utils.prompt_loader import load_prompt
 
@@ -23,7 +25,10 @@ def review_node(state):
         estimation=_safe_json(state.get("estimation")),
     )
 
+    start = time.perf_counter()
     review = review_agent(prompt=prompt)
+    log_event("REVIEW", "Completed",
+              duration_ms=round((time.perf_counter() - start) * 1000, 2))
 
     return {
         "review": review

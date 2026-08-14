@@ -1,3 +1,5 @@
+import time
+
 from agents.story_agent import story_agent
 from mcp_client.resource_cache import get_resource
 from utils.prompt_loader import load_prompt
@@ -16,7 +18,10 @@ def story_node(state):
             story_standard=story_standard,
         )
     
+    start = time.perf_counter()
     stories = story_agent(prompt=prompt)
+    log_event("STORY", "Completed",
+              duration_ms=round((time.perf_counter() - start) * 1000, 2))
     
     return {
             "stories": stories

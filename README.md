@@ -224,9 +224,9 @@ flowchart TD
 
 ---
 
-## � Observability
+## 🔍 Observability
 
-Every component — graph nodes, MCP tool calls, and RAG stages — emits **structured logs** tagged with a single **trace id** per workflow run, so one run can be reconstructed end-to-end across threads *and* processes.
+Every component — graph nodes, MCP tool calls, and RAG stages — emits **JSON structured logs** tagged with a single **trace id** per workflow run, so one run can be reconstructed end-to-end across threads *and* processes. Timed operations (nodes, MCP tool calls, RAG retrieval, and the full workflow) also carry a `duration_ms` field.
 
 ```mermaid
 flowchart LR
@@ -248,13 +248,20 @@ flowchart LR
 
 ### Sample trace (one run, one id)
 
+Each line is a single JSON object:
+
+```json
+{"time": "2026-08-14 22:01:37", "trace_id": "62fc2abaffd94d6682fb7be9ec21ba32", "level": "info", "component": "mcp", "message": "calling tool 'retrieve_similar_brd'"}
+{"time": "2026-08-14 22:01:37", "trace_id": "62fc2abaffd94d6682fb7be9ec21ba32", "level": "info", "component": "rag", "message": "filtered chunks: 18"}
+{"time": "2026-08-14 22:01:38", "trace_id": "62fc2abaffd94d6682fb7be9ec21ba32", "level": "info", "component": "rag", "message": "hybrid results: 3", "duration_ms": 1362.32}
+{"time": "2026-08-14 22:01:41", "trace_id": "62fc2abaffd94d6682fb7be9ec21ba32", "level": "info", "component": "ANALYZER", "message": "Completed", "duration_ms": 5521.76}
+{"time": "2026-08-14 22:03:30", "trace_id": "62fc2abaffd94d6682fb7be9ec21ba32", "level": "info", "component": "workflow", "message": "completed", "duration_ms": 118091.69}
 ```
-21:18:09 | 8cdea129e0a6468c899d6dba424c6eae | mcp | calling tool 'retrieve_similar_brd'
-21:18:09 | 8cdea129e0a6468c899d6dba424c6eae | rag | retrieve() query='customer portal register login ...' top_k=3
-21:18:09 | 8cdea129e0a6468c899d6dba424c6eae | rag | query metadata: {'module': 'authentication'}
-21:18:09 | 8cdea129e0a6468c899d6dba424c6eae | rag | filtered chunks: 18
-21:18:09 | 8cdea129e0a6468c899d6dba424c6eae | rag | ANN candidates: 10
-21:18:10 | 8cdea129e0a6468c899d6dba424c6eae | rag | hybrid results: 3
+
+Query by field:
+
+```bash
+jq 'select(.component == "rag")' observability/logs/ba_copilot.log
 ```
 
 ### Hard-won lessons
@@ -263,7 +270,7 @@ See [`engineering-challenges/`](./engineering-challenges) — documented problem
 
 ---
 
-## �📂 Project Structure
+## 📂 Project Structure
 
 ```
 ba-copilot/

@@ -3,6 +3,7 @@ RAG Engine — encapsulates the full retrieval pipeline:
   chunk → enrich → embed → FAISS ANN → hybrid re-rank
 """
 import json
+import time
 from pathlib import Path
 
 from observability.logger import log_event
@@ -62,6 +63,7 @@ class RAGEngine:
     def retrieve(self, query: str, top_k: int = 3, candidate_k: int = 10) -> str:
         """Run the full two-stage pipeline and return formatted results."""
         
+        start = time.perf_counter()
         log_event("rag", f"retrieve() query='{query[:60]}' top_k={top_k}")
         
         # ── Query enrichment (metadata filter) ──────────────
@@ -74,7 +76,8 @@ class RAGEngine:
         log_event("rag", f"filtered chunks: {len(filtered)}")
         
         if not filtered:
-            log_event("rag", "no matching chunks — fallback response")
+            log_event("rag", "no matching chunks — fallback response",
+                      duration_ms=round((time.perf_counter() - start) * 1000, 2))
             return (
                 f"No relevant BRD knowledge found for '{query}'.\n"
                 f"Available modules: authentication, billing, checkout, claims"
@@ -97,7 +100,8 @@ class RAGEngine:
 
         hybrid = HybridSearch(candidate_texts, candidate_embeddings)
         results = hybrid.search(query, query_emb, top_k=min(top_k, len(candidate_texts)))
-        log_event("rag", f"hybrid results: {len(results)}")
+        log_event("rag", f"hybrid results: {len(results)}",
+                  duration_ms=round((time.perf_counter() - start) * 1000, 2))
 
         # ── Format output ───────────────────────────────────
         lines = [f"Top {len(results)} relevant BRD snippets for: '{query}'\n"]

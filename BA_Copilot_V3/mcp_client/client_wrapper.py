@@ -10,6 +10,7 @@ import asyncio
 import atexit
 import logging
 import threading
+import time
 
 from fastmcp import Client
 
@@ -73,9 +74,12 @@ def _call_tool_sync(tool_name: str, arguments: dict) -> str:
         result = await _client.call_tool(tool_name, arguments)
         return result.content[0].text
 
+    start = time.perf_counter()
     future = asyncio.run_coroutine_threadsafe(_call(), _loop)
-    log_event("mcp", f"tool '{tool_name}' completed")
-    return future.result()
+    result = future.result()
+    log_event("mcp", f"tool '{tool_name}' completed",
+              duration_ms=round((time.perf_counter() - start) * 1000, 2))
+    return result
 
 
 def retrieve_similar_brd(requirement: str) -> str:
