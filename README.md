@@ -34,8 +34,12 @@ cd BA_Copilot_V3
 python -m venv .venv
 .venv\Scripts\Activate.ps1          # Windows
 pip install -r requirements.txt
+pip install -r ../BA_MCP_Server/requirements.txt   # RAG deps (FAISS, sentence-transformers, sklearn)
 cp .env.example .env                # then add your DEEPSEEK_API_KEY
 python main.py                      # runs full workflow → output/ba_report_*.json
+```
+
+> First run downloads the `all-MiniLM-L6-v2` embedding model (~90 MB) from Hugging Face. The MCP server is spawned by V3 in the same Python environment, so both requirement files are needed.
 ```
 
 ### V1 — Stable (Custom Orchestration + Streamlit UI)
@@ -220,7 +224,46 @@ flowchart TD
 
 ---
 
-## 📂 Project Structure
+## � Observability
+
+Every component — graph nodes, MCP tool calls, and RAG stages — emits **structured logs** tagged with a single **trace id** per workflow run, so one run can be reconstructed end-to-end across threads *and* processes.
+
+```mermaid
+flowchart LR
+    subgraph V3["BA_Copilot_V3 (client process)"]
+        A["main.py<br/>set_trace_id(generate_trace_id())"] -->|context copied at submit| B["node worker"]
+        B --> C["tool worker"]
+        C -->|get_trace_id() read before handoff| D["MCP daemon thread"]
+    end
+    D -->|tool arg: {'trace_id': ...}| E["MCP server process"]
+    subgraph Server["BA_MCP_Server"]
+        E --> F["tool fn<br/>set_trace_id(trace_id)"]
+        F --> G["RAGEngine.retrieve()"]
+    end
+    G -.->|append| H[("observability/logs/ba_copilot.log")]
+    A -.->|append| H
+```
+
+**The rules:** generate the trace id **once per run** (`main.py`) → carry it **per request** (MCP tool argument) → set it **per call** (top of each server tool). Logs from both processes append to `observability/logs/ba_copilot.log`.
+
+### Sample trace (one run, one id)
+
+```
+21:18:09 | 8cdea129e0a6468c899d6dba424c6eae | mcp | calling tool 'retrieve_similar_brd'
+21:18:09 | 8cdea129e0a6468c899d6dba424c6eae | rag | retrieve() query='customer portal register login ...' top_k=3
+21:18:09 | 8cdea129e0a6468c899d6dba424c6eae | rag | query metadata: {'module': 'authentication'}
+21:18:09 | 8cdea129e0a6468c899d6dba424c6eae | rag | filtered chunks: 18
+21:18:09 | 8cdea129e0a6468c899d6dba424c6eae | rag | ANN candidates: 10
+21:18:10 | 8cdea129e0a6468c899d6dba424c6eae | rag | hybrid results: 3
+```
+
+### Hard-won lessons
+
+See [`engineering-challenges/`](./engineering-challenges) — documented problems and solutions encountered while building this, including trace-id propagation, the MCP stdout/logging trap, and script-vs-module import resolution.
+
+---
+
+## �📂 Project Structure
 
 ```
 ba-copilot/
@@ -284,6 +327,21 @@ ba-copilot/
 │   ├── prompts/                    │  Prompt templates (user stories, review)
 │   ├── utils/                      │  Shared utilities
 │   └── README.md
+│
+├── observability/                  ← Shared observability package (trace id, structured logs, metrics)
+│   ├── trace.py                    │  trace_id generation + ContextVar set/get
+│   ├── context.py                  │  ContextVar holding the current trace id
+│   ├── logger.py                   │  log_event → console + shared log file
+│   ├── metrics.py                  │  metrics scaffold (mcp_calls, rag_queries, cache_*)
+│   └── logs/                       │  runtime logs (gitignored)
+│
+├── engineering-challenges/         ← Documented problems + solutions (with mermaid diagrams)
+│   ├── 01_path_hell.md
+│   ├── 02_rag_pipeline.md
+│   ├── 03_mcp_race_condition.md
+│   ├── 04_trace_id_propagation.md
+│   ├── 05_mcp_server_stdout_logging.md
+│   └── 06_script_vs_module_imports.md
 │
 └── .gitignore
 ```
@@ -397,8 +455,10 @@ Never install V2 packages into V1's `.venv` or vice versa. Both folders are git-
 
 ## 📖 Documentation
 
+- [V3 README](./BA_Copilot_V3/README.md) — Current production workflow
 - [V1 README](./BA_Copilot_V1/README.md) — Setup and usage for stable version
 - [V2 README](./BA_Copilot_V2/README.md) — LangGraph, checkpoints, and approval workflow
+- [Engineering Challenges](./engineering-challenges/) — Problems solved + lessons learned
 
 ---
 
