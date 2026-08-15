@@ -1,21 +1,24 @@
+import threading
+from collections import defaultdict
+
+
 class Metrics:
     
     def __init__(self):
+        self.counters = defaultdict(int)
+        self._lock = threading.Lock()
+        
+    def increment(self, metric_name:str):
+        with self._lock:
+            self.counters[metric_name] += 1
+        
+    def get(self, metric_name:str):
+        with self._lock:
+            return  self.counters.get(metric_name, 0)
         
         
-        self.metrics = {
-            "mcp_calls":0,
-            "cache_hits":0,
-            "cache_misses":0,
-            "rag_queries":0,
-        }
-        
-    def increment(self, metric_name):
-            
-        self.metrics[metric_name] += 1
-        
-    def report(self):
-        
-        return self.metrics
+    def snapshot(self):
+        with self._lock:
+            return dict(self.counters)
             
         

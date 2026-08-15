@@ -12,16 +12,16 @@ Usage from any node:
 """
 
 import asyncio
-import logging
 import threading
 
 from fastmcp import Client
 
 from mcp_client import get_server_target
+from observability.logger import log_event
+from observability.metrics_registry import metrics
 
 _CACHE: dict[str, str] = {}
 _LOCK = threading.Lock()
-logger = logging.getLogger(__name__)
 
 def get_resource(uri: str) -> str:
     """
@@ -33,16 +33,17 @@ def get_resource(uri: str) -> str:
         "ba://review_checklist"
     """
     if uri in _CACHE:
-        logger.debug(f"CACHE HIT (after lock)-> {uri}")
+        metrics.increment("cache_hits") 
         return _CACHE[uri]
         
     with _LOCK:
         # double-check uner lock
         if uri in _CACHE:
-            logger.debug(f"CACHE HIT (after lock)-> {uri}")
+            metrics.increment("cache_hits") 
             return _CACHE[uri]
         
-        logger.info(f"[MCP] CACHE MISS -> {uri}")
+        metrics.increment("cache_misses")
+        log_event("cache", f"miss {uri}")
         
         async def _fetch():
             client = Client(get_server_target())
@@ -52,11 +53,11 @@ def get_resource(uri: str) -> str:
             
         try:
             content = asyncio.run(_fetch())
-        except Exception:
-            logger.exception(f"[MCP] Failed to fetch resource: {uri}")
+        except Exception as e:
+            log_event("cache", f"failed to fetch {uri}: {e}")
             raise
         
         _CACHE[uri] = content
-        logger.info("[MCP] CACHED -> %s (%d chars)", uri, len(content))
+        log_event("cache", f"cached {uri} ({len(content)} chars)")
         return content
     

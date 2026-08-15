@@ -8,7 +8,6 @@ so parallel tool invocations share one server, one model, one cache.
 """
 import asyncio
 import atexit
-import logging
 import threading
 import time
 
@@ -16,9 +15,8 @@ from fastmcp import Client
 
 from mcp_client import get_server_target
 from observability.logger import log_event
+from observability.metrics_registry import metrics
 from observability.trace import get_trace_id
-
-logger = logging.getLogger(__name__)
 
 # ── Persistent event loop + client (module-level singleton) ──────────
 _loop: asyncio.AbstractEventLoop
@@ -36,7 +34,7 @@ def _run_event_loop() -> None:
         global _client
         _client = Client(get_server_target())
         await _client.__aenter__()
-        logger.info("[MCP] Persistent server connected")
+        log_event("mcp","Persistent server connected")
         _ready.set()
         # Keep the loop alive indefinitely
         await asyncio.Event().wait()
@@ -69,6 +67,7 @@ def _call_tool_sync(tool_name: str, arguments: dict) -> str:
     trace_id = get_trace_id()
     arguments = {**arguments, "trace_id": trace_id}
     log_event("mcp", f"calling tool '{tool_name}'")
+    metrics.increment("mcp_calls")
     
     async def _call() -> str:
         result = await _client.call_tool(tool_name, arguments)

@@ -8,13 +8,13 @@ LOG_FILE = Path(__file__).resolve().parent / "logs" / "ba_copilot.log"
 
 LOG_FILE.parent.mkdir(exist_ok=True)
 
-def log_event(component, message, duration_ms=None):
+def log_event(component, message, duration_ms=None, level="info"):
     
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     log_line = {
         "time": ts,
         "trace_id": get_trace_id() or "-",
-        "level": "info",
+        "level": level,
         "component": component,
         "message": message,
     }

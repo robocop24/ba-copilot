@@ -13,6 +13,6 @@
 *.db-shm
 *.db-wal
 logs/
-
+*.json
 # Auto-generated RAG chunk cache (regenerated on startup)
 BA_MCP_Server/knowledge_base/cached_chunks.json
