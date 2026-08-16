@@ -462,6 +462,7 @@ Never install V2 packages into V1's `.venv` or vice versa. Both folders are git-
 
 ## 📖 Documentation
 
+- [Runtime Architecture](./docs/RUNTIME_ARCHITECTURE.md) — Layer-by-layer walkthrough
 - [V3 README](./BA_Copilot_V3/README.md) — Current production workflow
 - [V1 README](./BA_Copilot_V1/README.md) — Setup and usage for stable version
 - [V2 README](./BA_Copilot_V2/README.md) — LangGraph, checkpoints, and approval workflow

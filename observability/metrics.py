@@ -1,3 +1,4 @@
+import json
 import threading
 from collections import defaultdict
 
@@ -20,5 +21,10 @@ class Metrics:
     def snapshot(self):
         with self._lock:
             return dict(self.counters)
+        
+    def save_snapshot(self, file_path):
+        
+        with open(file_path, "w", encoding="utf-8") as file:
+            json.dump(self.snapshot(), file, indent=4)
             
         

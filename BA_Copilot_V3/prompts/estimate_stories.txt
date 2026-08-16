@@ -11,3 +11,5 @@ For each user story:
 Stories:
 
 {stories}
+
+return only JSON, no markdown tables

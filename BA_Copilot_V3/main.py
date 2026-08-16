@@ -13,7 +13,7 @@ from graph.graph import graph
 from langgraph.types import Command
 
 from observability.logger import log_event
-from observability.metrics_registry import metrics
+from observability.metrics_registry import metrics, save_metrics
 from observability.trace import generate_trace_id, set_trace_id
 
 BASE_DIR = Path(__file__).parent
@@ -81,6 +81,7 @@ def main():
         approval_count += 1
         
     log_event("METRICS", json.dumps(metrics.snapshot()))
+    save_metrics("v3_metrics.json")
     # print("\nRESULT")
     # print("="*50)
     final_state = graph.get_state(config)
