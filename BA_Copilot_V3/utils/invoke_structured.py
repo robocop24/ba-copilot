@@ -13,7 +13,6 @@ tool errors). We retry those plainly, without any feedback loop.
 """
 
 from observability.logger import log_event
-from observability.metrics_registry import metrics
 
 
 def invoke_structured(agent, payload, max_attempts=2):
@@ -37,7 +36,6 @@ def invoke_structured(agent, payload, max_attempts=2):
             result = agent.invoke(payload)
             return result["structured_response"]  # already a validated model
         except Exception as e:  # intentional broad catch: retry ANY API/parse/tool error, then re-raise
-            metrics.increment("errors")
             log_event("invoke_structured",
                       f"Error in structured call (attempt {attempt+1}): {e}",
                       level="error")

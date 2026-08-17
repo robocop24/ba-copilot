@@ -18,7 +18,6 @@ from fastmcp import Client
 
 from mcp_client import get_server_target
 from observability.logger import log_event
-from observability.metrics_registry import metrics
 
 _CACHE: dict[str, str] = {}
 _LOCK = threading.Lock()
@@ -33,16 +32,15 @@ def get_resource(uri: str) -> str:
         "ba://review_checklist"
     """
     if uri in _CACHE:
-        metrics.increment("cache_hits") 
+        log_event("cache", f"hit {uri}")
         return _CACHE[uri]
         
     with _LOCK:
         # double-check uner lock
         if uri in _CACHE:
-            metrics.increment("cache_hits") 
+            log_event("cache", f"hit {uri}")
             return _CACHE[uri]
         
-        metrics.increment("cache_misses")
         log_event("cache", f"miss {uri}")
         
         async def _fetch():

@@ -28,8 +28,8 @@ Initialization happens in this order:
 6. **Graph execution** — `graph.stream(initial_state, config=config)`.
 7. **Human-in-the-loop** — an approval loop calls `graph.invoke(Command(resume=...))`
    until the workflow ends.
-8. **Output** — metrics snapshot is saved, the BA report is written to
-   `output/ba_report_<timestamp>.json`, and the graph is rendered to PNG.
+8. **Output** — the BA report is written to `output/ba_report_<timestamp>.json`
+   and the graph is rendered to PNG.
 
 ---
 
@@ -49,7 +49,7 @@ The application uses three kinds of threads, each with a distinct purpose.
 flowchart TD
     A["import client_wrapper.py"] --> B["threading.Thread(target=_run_event_loop, daemon=True)"]
     B --> C["start() → new event loop + connect to MCP server"]
-    C --> D["_ready.wait(30) blocks main thread until connected"]
+    C --> D["_ready.wait(120) blocks main thread until connected"]
     D --> E["main() runs afterward"]
 ```
 
@@ -62,6 +62,10 @@ Key facts:
 - Because the daemon thread starts before the trace id is set, it has its own context:
   the trace id must be **captured in the calling thread and passed explicitly** (see
   Layer 6).
+- The server subprocess cold start (heavy ML imports) can take 30–60 s on Windows, so
+  the wait timeout is 120 s. If it were shorter, the graph would start before the server
+  is ready and the first tool call would absorb the remaining startup time (see
+  challenge 09).
 
 `mcp_client/resource_cache.py` additionally uses a `threading.Lock` with a
 double-checked-locking pattern to safely cache MCP resources across threads.
@@ -115,7 +119,7 @@ Used by the stateless agents, which return free text that must be parsed and val
 ```
 invoke → result["structured_response"]  (already a validated model)
        ↓ on exception
-          increment "errors" + log_event(error) → retry (up to N) → re-raise last error
+          log_event(error) → retry (up to N) → re-raise last error
 ```
 
 Used by the estimation agent. There is no JSON parsing or validation step, because the
@@ -144,7 +148,7 @@ sequenceDiagram
     T-->>A: story points
     A-->>G: structured response (EstimationOutput)
     G-->>M: final state
-    M->>O: save_metrics + log_event
+    M->>O: log_event (JSON → log file)
     M-->>U: ba_report_*.json
 ```
 
@@ -155,7 +159,7 @@ flowchart TD
     A[User prompt] --> B[create_agent with response_format]
     B --> C{invoke_structured}
     C -->|success| D[structured_response = EstimationOutput]
-    C -->|exception| E[log error + metrics errors++]
+    C -->|exception| E[log error]
     E --> F{attempts left?}
     F -->|yes| C
     F -->|no| G[raise last error]
@@ -188,15 +192,15 @@ The `observability/` package (shared by V3 and the MCP server) provides three pi
 - The file handler (not stdout) is what makes server-side logs visible — the MCP
   server's stdout belongs to the JSON-RPC transport.
 
-### Metrics
+### Log-derived analytics
 
-- `metrics.py` — a thread-safe `Metrics` class (`defaultdict` + `Lock`).
-- `metrics_registry.py` — a singleton `metrics` plus `save_metrics(file_name)`, anchored
-  to `__file__` so CWD doesn't matter.
-- Each process persists its own snapshot:
-  - V3 client → `observability/metrics/v3_metrics.json`
-  - MCP server → `observability/metrics/mcp_metrics.json`
-- `dashboard.py` merges both files into one view.
+- `log_analyzer.py` — `LogAnalyzer` parses `ba_copilot.log` and derives everything:
+  counters (`workflow_count`, `llm_call_count`, `mcp_call_count`, `cache_hit/miss_count`,
+  `rag_query_count`, `error_count`) and latency stats (count / avg / min / max per
+  component).
+- Because both processes append to the same log file, the log **is** the single source
+  of truth — no separate metrics files or cross-process merge needed.
+- `dashboard.py` renders the counters, latency, and slowest component from `LogAnalyzer`.
 
 ---
 
@@ -238,5 +242,5 @@ error left to feed back.
 | Agents | `BA_Copilot_V3/agents/*.py` |
 | Invocation | `BA_Copilot_V3/utils/invoke_with_validation.py`, `invoke_structured.py` |
 | Models | `BA_Copilot_V3/models/*.py` |
-| Observability | `observability/context.py`, `trace.py`, `logger.py`, `metrics.py`, `metrics_registry.py`, `dashboard.py` |
+| Observability | `observability/context.py`, `trace.py`, `logger.py`, `log_analyzer.py`, `dashboard.py` |
 | Server tools | `BA_MCP_Server/tools/*.py` |

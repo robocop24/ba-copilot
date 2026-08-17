@@ -13,7 +13,6 @@ from graph.graph import graph
 from langgraph.types import Command
 
 from observability.logger import log_event
-from observability.metrics_registry import metrics, save_metrics
 from observability.trace import generate_trace_id, set_trace_id
 
 BASE_DIR = Path(__file__).parent
@@ -60,7 +59,6 @@ def main():
     # Stream events to catch interrupts
     print("Starting workflow...")
     start = time.perf_counter()
-    metrics.increment("workflow_runs")
     for event in graph.stream(
         initial_state, config=config):
         node_name = next(iter(event.keys())) if event else "?"
@@ -80,8 +78,6 @@ def main():
         snapshot = graph.get_state(config)
         approval_count += 1
         
-    log_event("METRICS", json.dumps(metrics.snapshot()))
-    save_metrics("v3_metrics.json")
     # print("\nRESULT")
     # print("="*50)
     final_state = graph.get_state(config)

@@ -39,7 +39,7 @@ cp .env.example .env                # then add your DEEPSEEK_API_KEY
 python main.py                      # runs full workflow → output/ba_report_*.json
 ```
 
-> First run downloads the `all-MiniLM-L6-v2` embedding model (~90 MB) from Hugging Face. The MCP server is spawned by V3 in the same Python environment, so both requirement files are needed.
+> First run downloads the `all-MiniLM-L6-v2` embedding model (~90 MB) from Hugging Face. The MCP server runs in the same Python environment, so both requirement files are needed. Each run waits up to ~120 s for the MCP server subprocess to warm up before the graph starts.
 ```
 
 ### V1 — Stable (Custom Orchestration + Streamlit UI)
@@ -335,11 +335,12 @@ ba-copilot/
 │   ├── utils/                      │  Shared utilities
 │   └── README.md
 │
-├── observability/                  ← Shared observability package (trace id, structured logs, metrics)
+├── observability/                  ← Shared observability package (trace id, structured logs, log analytics)
 │   ├── trace.py                    │  trace_id generation + ContextVar set/get
 │   ├── context.py                  │  ContextVar holding the current trace id
-│   ├── logger.py                   │  log_event → console + shared log file
-│   ├── metrics.py                  │  metrics scaffold (mcp_calls, rag_queries, cache_*)
+│   ├── logger.py                   │  log_event → JSON line to shared log file
+│   ├── log_analyzer.py             │  derives counters + latency from the log
+│   ├── dashboard.py                │  renders counters, latency, slowest component
 │   └── logs/                       │  runtime logs (gitignored)
 │
 ├── engineering-challenges/         ← Documented problems + solutions (with mermaid diagrams)
@@ -348,7 +349,10 @@ ba-copilot/
 │   ├── 03_mcp_race_condition.md
 │   ├── 04_trace_id_propagation.md
 │   ├── 05_mcp_server_stdout_logging.md
-│   └── 06_script_vs_module_imports.md
+│   ├── 06_script_vs_module_imports.md
+│   ├── 07_cross_process_metrics.md
+│   ├── 08_retry_amplification.md
+│   └── 09_mcp_cold_start.md
 │
 └── .gitignore
 ```

@@ -1,3 +1,5 @@
+import time
+
 from agents.acceptance_agent import acceptance_agent
 from mcp_client.resource_cache import get_resource
 from utils.prompt_loader import load_prompt
@@ -16,5 +18,8 @@ def acceptance_node(state):
         stories=state["stories"].model_dump_json(indent=2),
     )
 
+    start = time.perf_counter()
     criteria = acceptance_agent(prompt=prompt)
+    log_event("ACCEPTANCE", "Completed",
+              duration_ms=round((time.perf_counter() - start) * 1000, 2))
     return {"acceptance_criteria": criteria}

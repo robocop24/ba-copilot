@@ -15,7 +15,6 @@ from fastmcp import Client
 
 from mcp_client import get_server_target
 from observability.logger import log_event
-from observability.metrics_registry import metrics
 from observability.trace import get_trace_id
 
 # ── Persistent event loop + client (module-level singleton) ──────────
@@ -56,7 +55,7 @@ def _cleanup() -> None:
 
 _thread = threading.Thread(target=_run_event_loop, daemon=True, name="mcp-loop")
 _thread.start()
-_ready.wait(timeout=30)  # block until connected (or timeout in CI)
+_ready.wait(timeout=120)  # allow cold start (model load + RAG index build)
 atexit.register(_cleanup)
 
 
@@ -67,7 +66,6 @@ def _call_tool_sync(tool_name: str, arguments: dict) -> str:
     trace_id = get_trace_id()
     arguments = {**arguments, "trace_id": trace_id}
     log_event("mcp", f"calling tool '{tool_name}'")
-    metrics.increment("mcp_calls")
     
     async def _call() -> str:
         result = await _client.call_tool(tool_name, arguments)

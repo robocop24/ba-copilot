@@ -3,7 +3,6 @@ from utils.append_validation_feedback import append_validation_feedback
 from utils.json_parser import parse_llm_json
 
 from observability.logger import log_event
-from observability.metrics_registry import metrics
 
 
 def _extract_text(response) -> str:
@@ -37,7 +36,6 @@ def invoke_with_validation(
             return model_class.model_validate(json_dict)
 
         except (ValidationError, ValueError) as e:
-            metrics.increment("errors")
             log_event("invoke_with_validation", f"Validation Error in {model_class.__name__} (attempt {attempt+1}): {e}", level="error")
             last_error = e
 

@@ -1,49 +1,42 @@
-import json
+import sys
 from pathlib import Path
 
-BASE_DIR = Path(__file__).parent
-METRICS_DIR = BASE_DIR/"metrics"
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from observability.log_analyzer import LogAnalyzer
 
 
-def load_metrics(file_name):
-    
-    file_path = METRICS_DIR/file_name
-    
-    if not file_path.exists():
-        return {}
-    
-    try:
-        with open(file_path, "r", encoding="utf-8") as file:
-            content = file.read().strip()
-            if not content:
-                return {}
-            return json.loads(content)
-    except (json.JSONDecodeError, OSError):
-        return {}
-    
-    
 def main():
-    
-    v3_metrics = load_metrics("v3_metrics.json")
-    
-    mcp_metrics = load_metrics("mcp_metrics.json")
-    
+    analyzer = LogAnalyzer()
+
     print("\n=== BA COPILOT DASHBOARD ===\n")
-    
-    print("V3 Metrics")
-    print("-"*30)
-    
-    for key, value in v3_metrics.items():
-        print(f"{key}: {value}")
-        
-    print()
-    
-    print("MCP Metrics")
-    print("-"*30)
-        
-    for key, value in mcp_metrics.items():
-        print(f"{key}: {value}")
-            
+
+    print("Counters (derived from logs)")
+    print("-" * 30)
+    print(f"workflows:     {analyzer.workflow_count()}")
+    print(f"llm_calls:     {analyzer.llm_call_count()}")
+    print(f"mcp_calls:     {analyzer.mcp_call_count()}")
+    print(f"cache_hits:    {analyzer.cache_hit_count()}")
+    print(f"cache_misses:  {analyzer.cache_miss_count()}")
+    print(f"rag_queries:   {analyzer.rag_query_count()}")
+    print(f"errors:        {analyzer.error_count()}")
+
+    print("\nComponent Latency")
+    print("-" * 30)
+    for component, stats in analyzer.component_latency_stats().items():
+        print(f"{component}: count={stats['count']} avg={stats['avg_ms']}ms "
+              f"min={stats['min_ms']}ms max={stats['max_ms']}ms")
+
+    print("\nComponent Log Counts")
+    print("-" * 30)
+    for component, count in analyzer.component_log_counts().items():
+        print(f"{component}: {count}")
+
+    slowest = analyzer.slowest_component()
+    if slowest:
+        name, stats = slowest
+        print(f"\nSlowest component: {name} (avg {stats['avg_ms']}ms)")
+
 
 if __name__ == "__main__":
     main()
