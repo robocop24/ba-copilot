@@ -11,15 +11,18 @@ Why this exists (vs. `invoke_with_validation`):
 So the only remaining failure modes are exceptions (API errors, parse errors,
 tool errors). We retry those plainly, without any feedback loop.
 """
+from pydantic import ValidationError
 
 from observability.logger import log_event
 
+from .usage import _extract_usage
 
-def invoke_structured(agent, payload, max_attempts=2):
+
+def invoke_structured(invokable, payload, max_attempts=2):
     """Invoke a `create_agent(response_format=...)` agent and return its model.
 
     Args:
-        agent: agent produced by `create_agent(..., response_format=Model)`.
+        invokable: agent produced by `create_agent(..., response_format=Model)`.
         payload: dict payload, e.g. {"messages": [("user", prompt)]}.
         max_attempts: how many times to retry on exception.
 
@@ -33,9 +36,14 @@ def invoke_structured(agent, payload, max_attempts=2):
     last_error = None
     for attempt in range(max_attempts):
         try:
-            result = agent.invoke(payload)
+            result = invokable.invoke(payload)
+            
+            usage = _extract_usage(result)
+            if usage:
+                log_event("llm", "called", **usage)
+                            
             return result["structured_response"]  # already a validated model
-        except Exception as e:  # intentional broad catch: retry ANY API/parse/tool error, then re-raise
+        except (ValidationError, ValueError) as e:  # intentional broad catch: retry ANY API/parse/tool error, then re-raise
             log_event("invoke_structured",
                       f"Error in structured call (attempt {attempt+1}): {e}",
                       level="error")

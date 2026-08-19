@@ -41,15 +41,19 @@ def main():
     
     processor = DocumentProcessor()
     requirement = processor.extract_text(BASE_DIR / "input/requirement.txt")
-    config={
-            "configurable":{
-                "thread_id":"portal_project_v3"
-            }
-        }
-    
+
     trace_id = generate_trace_id()
     set_trace_id(trace_id)
-    
+
+    # Unique thread_id per run: a fixed id makes LangGraph resume stale
+    # checkpoints from previous runs (which caused the review node to run
+    # twice — once with incomplete state).
+    config = {
+        "configurable": {
+            "thread_id": trace_id
+        }
+    }
+
     initial_state = {
             "requirement": requirement,
             "iteration": 0,
@@ -82,6 +86,9 @@ def main():
     # print("="*50)
     final_state = graph.get_state(config)
 
+    # NOTE: this duration is wall-clock from start to finish — it includes any
+    # time the user spends idle at the interactive approval prompt, not just
+    # graph execution time.
     log_event("workflow", "completed",
               duration_ms=round((time.perf_counter() - start) * 1000, 2))
 

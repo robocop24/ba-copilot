@@ -13,10 +13,9 @@ Usage from any node:
 
 import asyncio
 import threading
+import time
 
-from fastmcp import Client
-
-from mcp_client import get_server_target
+from mcp_client.client_wrapper import _client, _loop, _ready
 from observability.logger import log_event
 
 _CACHE: dict[str, str] = {}
@@ -42,20 +41,29 @@ def get_resource(uri: str) -> str:
             return _CACHE[uri]
         
         log_event("cache", f"miss {uri}")
-        
+
+        # Reuse the persistent client from client_wrapper — avoids spawning a
+        # fresh stdio subprocess (and its ~20s cold start) on every miss.
+        _ready.wait(timeout=120)
+        if not _ready.is_set():
+            raise RuntimeError(
+                f"MCP server not ready; cannot fetch resource {uri}"
+            )
+
         async def _fetch():
-            client = Client(get_server_target())
-            async with client:
-                result = await client.read_resource(uri)
-                return result[0].text
-            
+            result = await _client.read_resource(uri)
+            return result[0].text
+
+        start = time.perf_counter()
         try:
-            content = asyncio.run(_fetch())
+            future = asyncio.run_coroutine_threadsafe(_fetch(), _loop)
+            content = future.result()
         except Exception as e:
-            log_event("cache", f"failed to fetch {uri}: {e}")
+            log_event("cache", f"failed to fetch {uri}: {e}", level="error")
             raise
-        
+
         _CACHE[uri] = content
-        log_event("cache", f"cached {uri} ({len(content)} chars)")
+        log_event("cache", f"cached {uri} ({len(content)} chars)",
+                  duration_ms=round((time.perf_counter() - start) * 1000, 2))
         return content
     

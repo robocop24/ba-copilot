@@ -10,6 +10,7 @@ from observability.logger import log_event
 def acceptance_node(state):
     
     log_event("ACCEPTANCE", "Started")
+    start = time.perf_counter()
     acceptance_standard = get_resource("ba://acceptance_standard")
 
     prompt_template = load_prompt("acceptance_criteria.txt")
@@ -18,7 +19,6 @@ def acceptance_node(state):
         stories=state["stories"].model_dump_json(indent=2),
     )
 
-    start = time.perf_counter()
     criteria = acceptance_agent(prompt=prompt)
     log_event("ACCEPTANCE", "Completed",
               duration_ms=round((time.perf_counter() - start) * 1000, 2))

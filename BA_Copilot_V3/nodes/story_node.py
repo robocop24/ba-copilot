@@ -10,6 +10,7 @@ from observability.logger import log_event
 def story_node(state):
     
     log_event("STORY", "Started")
+    start = time.perf_counter()
     story_standard = get_resource("ba://story_standard")
     
     prompt_template = load_prompt("story.txt")
@@ -18,7 +19,6 @@ def story_node(state):
             story_standard=story_standard,
         )
     
-    start = time.perf_counter()
     stories = story_agent(prompt=prompt)
     log_event("STORY", "Completed",
               duration_ms=round((time.perf_counter() - start) * 1000, 2))

@@ -1,8 +1,10 @@
 from pydantic import ValidationError
-from utils.append_validation_feedback import append_validation_feedback
-from utils.json_parser import parse_llm_json
 
 from observability.logger import log_event
+
+from .append_validation_feedback import append_validation_feedback
+from .json_parser import parse_llm_json
+from .usage import _extract_usage
 
 
 def _extract_text(response) -> str:
@@ -29,7 +31,11 @@ def invoke_with_validation(
         try:
 
             response = invokable.invoke(payload)
-
+            
+            usage = _extract_usage(response)
+            if usage:
+                log_event("llm", "called", **usage)
+                
             text = _extract_text(response)
             json_dict = parse_llm_json(text)
 
