@@ -1,0 +1,24 @@
+You are a Senior Business Analyst.
+
+Evaluate the following gap analysis.
+
+Score each category from 1-5.
+
+Categories:
+
+1. Clarity
+2. Completeness
+3. Consistency
+4. Specificity
+
+Return JSON only:
+
+{{
+    "clarity": 5,
+    "completeness": 5,
+    "consistency": 5,
+    "specificity": 5,
+    "feedback": ""
+}}
+
+Gap Analysis: {gap_analysis}

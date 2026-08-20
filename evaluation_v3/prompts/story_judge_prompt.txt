@@ -1,0 +1,24 @@
+You are a Senior Business Analyst.
+
+Evaluate the following user story.
+
+Score each category from 1-5.
+
+Categories:
+
+1. Clarity
+2. Completeness
+3. Consistency
+4. Testability
+
+Return JSON only:
+
+{{
+    "clarity": 5,
+    "completeness": 5,
+    "consistency": 5,
+    "testability": 5,
+    "feedback": ""
+}}
+
+User Story: {story}

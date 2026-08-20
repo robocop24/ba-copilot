@@ -9,9 +9,12 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
-# Estimated pricing (USD per 1M tokens). Placeholder until real pricing is wired.
-INPUT_COST_PER_1M = 0.14
-OUTPUT_COST_PER_1M = 0.28
+# Real DeepSeek pricing (USD per 1M tokens) for deepseek-v4-pro.
+# Baseline = off-peak cache-miss rates. Peak hours (01:00-04:00 & 06:00-10:00 UTC)
+# cost 2x these rates; cache HITS cost far less ($0.022/1M input).
+# Source: https://api-docs.deepseek.com/quick_start/pricing
+INPUT_COST_PER_1M = 0.66    # input, cache miss, off-peak
+OUTPUT_COST_PER_1M = 1.98   # output, off-peak
 
 
 class LogAnalyzer:
