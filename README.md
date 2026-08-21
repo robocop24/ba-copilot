@@ -457,7 +457,9 @@ ba-copilot/
 │   ├── 06_script_vs_module_imports.md
 │   ├── 07_cross_process_metrics.md
 │   ├── 08_retry_amplification.md
-│   └── 09_mcp_cold_start.md
+│   ├── 09_mcp_cold_start.md
+│   ├── 10_workflow_duplication.md
+│   └── 11_cost_visibility.md
 │
 └── .gitignore
 ```
