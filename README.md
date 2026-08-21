@@ -2,11 +2,15 @@
 
 **BA Copilot** is a multi-agent AI system that automates the full Business Analyst workflow. It ingests raw requirement documents (`.txt`, `.pdf`, `.docx`) and produces structured BA deliverables — analysis, user stories, gap analysis, quality review, and iterative refinements.
 
-> Four components are provided:
+> Five components are provided:
 > - **V1** — Stable, custom orchestration + Streamlit UI
 > - **V2** — LangGraph-based with human-in-the-loop approval and SQLite checkpointing
 > - **V3** ⭐ — **Current.** Production LangGraph workflow with planner routing, tool-calling agents, auto-retry validation, and iterative refinement loop
 > - **BA MCP Server** — FastMCP server with RAG-powered BRD retrieval (FAISS + hybrid re-rank), story point estimation, and requirement loading tools
+>
+> Plus two cross-cutting packages:
+> - **Observability** — JSON structured logs (trace id, durations, tokens) + a log-derived analytics dashboard
+> - **Evaluation stack** (`evaluation_v1`–`v4`) — rule, rubric, LLM-judge, and regression scoring of BA artifacts
 
 ---
 
@@ -264,9 +268,86 @@ Query by field:
 jq 'select(.component == "rag")' observability/logs/ba_copilot.log
 ```
 
+### Log-derived analytics
+
+The log is the **single source of truth** — there is no separate metrics store.
+`observability/log_analyzer.py` parses `ba_copilot.log` and derives every metric,
+and `observability/dashboard.py` renders it:
+
+```bash
+python observability/dashboard.py
+```
+
+```
+=== BA COPILOT DASHBOARD ===
+
+Counters:       workflows, llm_calls, mcp_calls, cache_hits/misses, rag_queries, errors
+Latency:        per-component avg/min/max ms + slowest component
+Workflow:       per-trace component activity + duration
+Token & Cost:   prompt/completion/total tokens + estimated cost (USD)
+```
+
+Cost is estimated from real token usage with DeepSeek V4 Pro pricing
+(`INPUT_COST_PER_1M = 0.66`, `OUTPUT_COST_PER_1M = 1.98` off-peak; peak hours are
+2× — see the constants at the top of `log_analyzer.py`). Every LLM call logs
+`prompt_tokens`, `completion_tokens`, and `total_tokens`, so the dashboard's cost
+figure comes from real token counts, not a guess.
+
 ### Hard-won lessons
 
 See [`engineering-challenges/`](./engineering-challenges) — documented problems and solutions encountered while building this, including trace-id propagation, the MCP stdout/logging trap, and script-vs-module import resolution.
+
+---
+
+## 🧪 Evaluation & Regression Testing
+
+Four increasingly sophisticated evaluators score the BA artifacts — stories,
+acceptance criteria, and gap analysis — and finally track regressions across runs.
+
+| Version | Approach | Scoring |
+|---|---|---|
+| `evaluation_v1/` | Deterministic rules — `REQUIRED_PATTERN` keyword checks + word count | pass/fail per artifact |
+| `evaluation_v2/` | Rubric — 4 weighted categories with quality bands | 0–20 per artifact |
+| `evaluation_v3/` ⭐ | LLM judges — DeepSeek scores 4 categories 1–5, Pydantic-validated | 0–20 + feedback |
+| `evaluation_v4/` | Regression — baseline vs current with a tolerance threshold | PASS/FAIL overall |
+
+### End-to-end pipeline
+
+```bash
+python BA_Copilot_V3/main.py              # 1. generate a BA report (output/ba_report_*.json)
+python evaluation_v3/run_on_ba_report.py  # 2. LLM-judge it, write evaluation_v4/results/current_v1.json
+python evaluation_v4/dashboard.py         # 3. compare vs baseline → PASS/FAIL
+```
+
+`run_on_ba_report.py` loads the latest report via `ba_report_loader.py`, extracts
+**stories**, **acceptance criteria** (one block per story), and **gaps**, scores each
+with the matching judge, averages the results, and writes
+`evaluation_v4/results/current_v1.json`.
+
+```mermaid
+flowchart LR
+    A["BA_Copilot_V3/output/<br/>ba_report_*.json"] --> B["evaluation_v3/<br/>ba_report_loader.py"]
+    B --> C["StoryJudge"]
+    B --> D["AcceptanceCriteriaJudge"]
+    B --> E["GapAnalysisJudge"]
+    C --> F["avg scores"]
+    D --> F
+    E --> F
+    F --> G["evaluation_v4/results/<br/>current_v1.json"]
+    G --> H["RegressionEvaluator<br/>baseline vs current"]
+    H --> I["PASS / FAIL"]
+```
+
+### LLM judge output (v3)
+
+```bash
+python evaluation_v3/dashboard.py   # judges one sample of each artifact type
+```
+
+Each judge prompts DeepSeek to score 4 categories 1–5; the result is validated by a
+Pydantic model with `Field(ge=1, le=5)` (scores outside 1–5 are rejected) and returned
+as a total out of 20 plus feedback. All three judge-score models live in
+a single file: `evaluation_v3/models/judge_score.py`.
 
 ---
 
@@ -339,9 +420,33 @@ ba-copilot/
 │   ├── trace.py                    │  trace_id generation + ContextVar set/get
 │   ├── context.py                  │  ContextVar holding the current trace id
 │   ├── logger.py                   │  log_event → JSON line to shared log file
-│   ├── log_analyzer.py             │  derives counters + latency from the log
-│   ├── dashboard.py                │  renders counters, latency, slowest component
+│   ├── log_analyzer.py             │  derives counters, latency, token & cost from the log
+│   ├── dashboard.py                │  renders counters, latency, slowest, token & cost
 │   └── logs/                       │  runtime logs (gitignored)
+│
+├── evaluation_v1/                  ← Deterministic rule-based evaluators
+│   ├── evaluators/                 │  story / ac / gap evaluators
+│   ├── rules/                      │  REQUIRED_PATTERN + MIN_WORD_COUNT
+│   └── dashboard.py
+│
+├── evaluation_v2/                  ← Rubric-based evaluators (quality bands)
+│   ├── evaluators/                 │  story / ac / gap rubric evaluators
+│   ├── rubrics/                    │  rubric categories
+│   └── dashboard.py
+│
+├── evaluation_v3/                  ⭐ LLM judges + BA report connector
+│   ├── judges/                     │  story / ac / gap judges (1-5 Pydantic scores)
+│   ├── models/judge_score.py       │  single file with all 3 judge score models
+│   ├── prompts/                    │  judge prompt templates
+│   ├── ba_report_loader.py         │  extracts artifacts from a BA report JSON
+│   ├── run_on_ba_report.py         │  judges a BA report → avg scores
+│   └── dashboard.py
+│
+├── evaluation_v4/                  ← Regression testing
+│   ├── regression/                 │  RegressionEvaluator (threshold + summary)
+│   ├── datasets/                   │  golden dataset
+│   ├── results/                    │  baseline_v1.json + current_v1.json + reports
+│   └── dashboard.py
 │
 ├── engineering-challenges/         ← Documented problems + solutions (with mermaid diagrams)
 │   ├── 01_path_hell.md
