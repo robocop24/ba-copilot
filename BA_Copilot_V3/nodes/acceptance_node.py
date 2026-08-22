@@ -19,7 +19,10 @@ def acceptance_node(state):
         stories=state["stories"].model_dump_json(indent=2),
     )
 
-    criteria = acceptance_agent(prompt=prompt)
+    criteria = acceptance_agent(
+        prompt=prompt,
+        expected_stories=len(state["stories"].user_stories),
+    )
     log_event("ACCEPTANCE", "Completed",
               duration_ms=round((time.perf_counter() - start) * 1000, 2))
     return {"acceptance_criteria": criteria}

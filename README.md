@@ -11,6 +11,7 @@
 > Plus two cross-cutting packages:
 > - **Observability** — JSON structured logs (trace id, durations, tokens) + a log-derived analytics dashboard
 > - **Evaluation stack** (`evaluation_v1`–`v4`) — rule, rubric, LLM-judge, and regression scoring of BA artifacts
+> - **Guardrails** — inline completeness + LLM-judge quality gates with auto-retry (story / AC / gap)
 
 ---
 
@@ -183,6 +184,31 @@ START → retriever → analyze_requirements
                           ╱    ╲
                        END    refinement_output ──→ prepare_review (loop)
 ```
+
+---
+
+## 🛡️ Guardrails (V3)
+
+Each generated artifact (stories, acceptance criteria, gap analysis) is gated
+inline during the workflow:
+
+```text
+generate → completeness gate (deterministic) → LLM judge → quality gate → retry
+```
+
+- **Completeness gate** (`guardrails/completeness_gate.py`) — free structural
+  checks (non-empty output, story format, per-story coverage, `gaps_found`
+  consistency) that fail fast before any LLM judge call.
+- **LLM judge** (`evaluation_v3/judges/`) — rubric scoring (clarity,
+  completeness, consistency, testability / specificity) per artifact.
+- **Quality gate** (`guardrails/quality_gate.py`) — averages judge scores and
+  compares them against thresholds (15/20); below threshold it regenerates with
+  the judge's feedback.
+
+On gate failure the agent retries with feedback (max 2 attempts), then fails
+open and logs `*_GATE` events. Offline evaluation
+(`evaluation_v3/run_on_ba_report.py` + `evaluation_v4/dashboard.py`) remains the
+CI/regression path.
 
 ---
 

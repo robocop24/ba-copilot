@@ -147,6 +147,27 @@ def approval_router(state) -> str:
 
 Enables iterative refinement with human-in-the-loop. If the user rejects (`approved=False` or `None`), the workflow loops: `refinement → planner → analyzer → ... → approval` until approved or the iteration cap is reached.
 
+### Guardrail Fail-Open → Human Intervention (TODO)
+
+When a guardrail (completeness or quality) fails after `max_attempts`, the agents
+currently **fail-open silently** — they return the last output and only log a
+warning, so the workflow never learns that a gate failed.
+
+Planned design (not yet implemented):
+
+1. Agents return the verdict alongside the artifact
+   (e.g. `(StoryOutput, GuardrailResult)`), instead of swallowing it.
+2. Nodes store the verdict in `BAState` as plain dicts
+   (`story_verdict`, `ac_verdict`, `gap_verdict`) so it survives checkpointing.
+3. `approval_node` includes any gate failures in its `interrupt` message.
+4. `main.py` reads the pending `interrupt` payload and shows it to the user
+   before resuming, instead of the hardcoded "Approve BA Report?" prompt.
+5. `approval_router` already handles the decision: reject → `refinement`
+   (regenerate), approve → `END`.
+
+Alternative (more granular): call `interrupt` directly inside the failing node
+so it pauses immediately on a per-artifact gate failure.
+
 ---
 
 ## 5. Tool-Calling Agent (Analyzer)
