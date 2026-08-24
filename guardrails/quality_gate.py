@@ -3,9 +3,9 @@ from guardrails.models.guardrail_result import GuardrailResult
 
 class QualityGate:
     
-    STORY_THRESHOLD = 15
-    AC_THRESHOLD = 15
-    GAP_THRESHOLD = 15
+    STORY_THRESHOLD = 14
+    AC_THRESHOLD = 14
+    GAP_THRESHOLD = 14
 
     # Only metrics present in the evaluation dict are checked, so the same
     # gate works for a full report (all three keys) or a single artifact

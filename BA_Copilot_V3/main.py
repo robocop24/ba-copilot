@@ -11,6 +11,7 @@ import requests
 from document.document_processor import DocumentProcessor
 from graph.graph import graph
 from langgraph.types import Command
+from prompts.prompt_versions import PROMPT_VERSIONS
 
 from observability.logger import log_event
 from observability.trace import generate_trace_id, set_trace_id
@@ -56,9 +57,11 @@ def main():
 
     initial_state = {
             "requirement": requirement,
+            "prompt_versions":PROMPT_VERSIONS,
             "iteration": 0,
             "max_iterations": 3,
     }
+    log_event("workflow", "prompt version", prompt_versions=PROMPT_VERSIONS)
 
     # Stream events to catch interrupts
     print("Starting workflow...")

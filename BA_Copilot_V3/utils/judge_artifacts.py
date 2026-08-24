@@ -9,8 +9,8 @@ that the quality gate consumes.
 from observability.logger import log_event
 
 
-def judge_artifacts(judge, items: list[str], label: str = "artifact") -> dict:
-    """Judge every item and return averages plus feedback.
+def judge_artifacts(judge, items: list[str], label: str = "artifact", max_items: int | None = 5) -> dict:
+    """Judge a (possibly sampled) set of items and return averages + feedback.
 
     Args:
         judge: an evaluation_v3 judge instance with
@@ -18,20 +18,30 @@ def judge_artifacts(judge, items: list[str], label: str = "artifact") -> dict:
             where `score` has a `feedback` field.
         items: list of artifact strings to score.
         label: human-readable artifact name used in logs.
+        max_items: cap on how many items are judged (evenly sampled) to keep
+            LLM cost bounded. Pass None to judge every item.
 
     Returns:
         {
-            "avg": float,          # average total score across items
-            "max_score": int,      # judge's max score (e.g. 20)
-            "per_item": [int],     # total score per item
-            "feedback": [str],     # judge feedback per item
+            "avg": float,            # average total score across judged items
+            "max_score": int,        # judge's max score (e.g. 20)
+            "per_item": [int],       # total score per judged item
+            "feedback": [str],       # judge feedback per judged item
+            "total_items": int,      # number of items available
+            "sampled_items": int,    # number of items actually judged
         }
     """
+    sample = items
+    if max_items is not None and len(items) > max_items:
+        step = len(items) / max_items
+        indexes = sorted({min(int(i * step), len(items) - 1) for i in range(max_items)})
+        sample = [items[i] for i in indexes]
+
     scores = []
     feedback = []
     max_score = 0
 
-    for index, item in enumerate(items, 1):
+    for index, item in enumerate(sample, 1):
         result = judge.evaluate(item)
 
         total = result["total"]
@@ -45,7 +55,7 @@ def judge_artifacts(judge, items: list[str], label: str = "artifact") -> dict:
 
         log_event(
             "judge",
-            f"{label} {index} scored {total}/{max_score}",
+            f"{label} {index}/{len(sample)} scored {total}/{max_score}",
             label=label,
             index=index,
             total=total,
@@ -59,4 +69,6 @@ def judge_artifacts(judge, items: list[str], label: str = "artifact") -> dict:
         "max_score": max_score,
         "per_item": scores,
         "feedback": feedback,
+        "total_items": len(items),
+        "sampled_items": len(sample),
     }

@@ -1,6 +1,23 @@
-Build a customer portal where users can:
+Customer Portal — Requirements
 
-- Register
-- Login
-- View Orders
-- Download Invoices
+Purpose: Replace the legacy order-tracking system with a self-service portal so customers can manage their accounts without calling support.
+
+Actors:
+- Customer (primary user)
+- Support Agent (assists customers with access issues)
+
+Functional requirements:
+1. Registration — a customer can create an account with email and a password that meets a minimum 8-character policy; email must be verified via a one-time link.
+2. Login — a registered customer can sign in with email + password; the session times out after 15 minutes of inactivity.
+3. View Orders — a customer can view all orders placed in the last 24 months, including status (placed, shipped, delivered).
+4. Download Invoices — a customer can download a PDF invoice for any of those orders.
+
+Business rules:
+- Customers can only see their own orders and invoices.
+- Passwords must be reset via an email link, never shown in plain text.
+
+Non-functional:
+- All account and order data must be transmitted over TLS.
+- The portal must support 5,000 concurrent users.
+
+Out of scope: payment processing, order placement, admin dashboards.

@@ -45,6 +45,7 @@ class RegressionEvaluator:
         
         report = {
             "metrics": {},
+            "prompt_versions": {"changed": 0, "entries": {}},
             "summary": {
                 "improved": 0,
                 "regressed": 0,
@@ -53,12 +54,32 @@ class RegressionEvaluator:
                 "status": "PASS",
             },
         }
+
+        # Compare prompt versions (metadata) — informational only; does not
+        # affect numeric pass/fail.
+        base_pv = baseline.get("prompt_versions") or {}
+        curr_pv = current.get("prompt_versions") or {}
+        pv_entries = {}
+        pv_changed = 0
+        for key in sorted(set(base_pv) | set(curr_pv)):
+            b = base_pv.get(key)
+            c = curr_pv.get(key)
+            pv_entries[key] = {"baseline": b, "current": c, "changed": b != c}
+            if b != c:
+                pv_changed += 1
+        report["prompt_versions"] = {"changed": pv_changed, "entries": pv_entries}
         
         for metric in metrics:
             
             base = baseline.get(metric)
             curr = current.get(metric)
-            
+
+            # Skip non-numeric metadata (e.g. prompt_versions) — regression
+            # only compares numeric score metrics.
+            if (base is not None and not isinstance(base, (int, float))) or \
+               (curr is not None and not isinstance(curr, (int, float))):
+                continue
+
             if base is None or curr is None:
                 delta = None
                 status = "missing"

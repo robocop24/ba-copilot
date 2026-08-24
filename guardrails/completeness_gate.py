@@ -16,6 +16,8 @@ _STORY_HEADER = re.compile(r"^\s*As\s+an?\s+\S", re.IGNORECASE)
 class CompletenessGate:
     """Structural checks for story, acceptance-criteria, and gap outputs."""
 
+    MAX_GAPS = 6
+
     def validate_story(self, story_output) -> GuardrailResult:
         failures = []
 
@@ -100,6 +102,9 @@ class CompletenessGate:
             failures.append("gaps_found is True but no gaps are listed")
         if gaps_found is False and gaps:
             failures.append("gaps_found is False but gaps are listed")
+
+        if len(gaps) > self.MAX_GAPS:
+            failures.append(f"Too many gaps ({len(gaps)}); expected at most {self.MAX_GAPS}")
 
         for index, gap in enumerate(gaps, 1):
             if not (isinstance(gap, str) and gap.strip()):

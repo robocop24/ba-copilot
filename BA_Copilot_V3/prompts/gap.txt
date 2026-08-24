@@ -16,6 +16,8 @@ ORIGINAL REQUIREMENT:
 ANALYSIS OUTPUT:
 {analysis}
 
+Produce only the most material gaps — between 3 and 6 total. Skip trivial or redundant ones.
+
 Output a JSON object with these keys:
 - "gaps_found": true if any gaps were identified, false otherwise
 - "gaps": list of gap descriptions (empty list if none found)

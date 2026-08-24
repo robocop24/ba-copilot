@@ -43,3 +43,6 @@ def extract_acceptance_criteria(report: dict) -> list[str]:
 def extract_gaps(report: dict) -> list[str]:
     """Gap descriptions from the report."""
     return report.get("gaps", {}).get("gaps", [])
+
+def extract_prompt_versions(report: dict) -> dict:
+    return report.get("prompt_versions", {})

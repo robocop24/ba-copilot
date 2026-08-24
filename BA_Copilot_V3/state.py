@@ -22,5 +22,7 @@ class BAState(TypedDict):
     refinement: RefinementOutput
     approved: bool|None
     
+    prompt_versions: dict
+    
     iteration: int
     max_iterations: int

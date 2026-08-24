@@ -9,6 +9,7 @@ sys.path.insert(0, str(BASE_DIR / "BA_Copilot_V3"))
 from evaluation_v3.ba_report_loader import (
     extract_acceptance_criteria,
     extract_gaps,
+    extract_prompt_versions,
     extract_stories,
     load_latest_report,
 )
@@ -40,6 +41,7 @@ def main():
     stories = extract_stories(report)
     acs = extract_acceptance_criteria(report)
     gaps = extract_gaps(report)
+    prompt_versions = extract_prompt_versions(report)
 
     if LIMIT is not None:
         stories = stories[:LIMIT]
@@ -54,9 +56,11 @@ def main():
     gap_scores = _judge(GapAnalysisJudge(), gaps, "Gap")
 
     summary = {
+        "version": "current",
         "story_avg_score": _average(story_scores),
         "ac_avg_score": _average(ac_scores),
         "gap_avg_score": _average(gap_scores),
+        "prompt_versions":prompt_versions
     }
 
     print("\n=== Summary ===\n")
