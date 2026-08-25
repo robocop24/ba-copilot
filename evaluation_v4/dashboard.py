@@ -46,6 +46,10 @@ def main():
             print(f"{key}: {data['baseline']} -> {data['current']} ({marker})")
         print(f"\n{pv.get('changed', 0)} prompt(s) changed")
         print(f"baseline version: {baseline.get('version', '?')} | current version: {current.get('version', '?')}")
+        model_b = baseline.get("model_version", "?")
+        model_c = current.get("model_version", "?")
+        model_marker = "CHANGED" if model_b != model_c else "same"
+        print(f"model version: {model_b} -> {model_c} ({model_marker})")
     
     save_json(BASE_DIR / "results" / "regression_report.json", report)
     print("Report saved to results/regression_report.json")

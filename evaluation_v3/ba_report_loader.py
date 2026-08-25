@@ -46,3 +46,6 @@ def extract_gaps(report: dict) -> list[str]:
 
 def extract_prompt_versions(report: dict) -> dict:
     return report.get("prompt_versions", {})
+
+def extract_model_version(report: dict) -> str:
+    return report.get("model_version", "")

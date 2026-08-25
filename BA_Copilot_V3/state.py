@@ -22,6 +22,7 @@ class BAState(TypedDict):
     refinement: RefinementOutput
     approved: bool|None
     
+    model_version: str
     prompt_versions: dict
     
     iteration: int
