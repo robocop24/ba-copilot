@@ -1,8 +1,8 @@
 # FastMCP server framework
-fastmcp
+fastmcp==3.4.5
 
 # RAG pipeline dependencies
-sentence-transformers>=3.0
-faiss-cpu>=1.9
-numpy>=1.26,<2
-scikit-learn>=1.3
+sentence-transformers==5.7.0
+faiss-cpu==1.15.0
+numpy==2.5.2
+scikit-learn==1.9.0

@@ -1,22 +1,25 @@
 # Core graph framework
-langgraph>=0.2.60,<0.4
-langgraph-checkpoint>=2.0.10,<3.0
-langgraph-checkpoint-sqlite>=2.0.3,<3.0
+langgraph==1.2.9
+langgraph-checkpoint==4.1.1
+langgraph-checkpoint-sqlite==3.1.1
 
 # LLM provider (DeepSeek via OpenAI-compatible API)
-langchain-openai>=0.2,<0.3
-langchain-core>=0.3,<0.4
+langchain-openai==1.6.0
+langchain-core==1.6.1
 
 # Data validation
-pydantic>=2,<3
+pydantic==2.13.4
 
 # Document processing
-PyPDF2>=3.0,<4.0
-python-docx>=1.1,<2.0
+PyPDF2==3.0.1
+python-docx==1.2.0
 
 # Environment variables
-python-dotenv>=1.0,<2.0
+python-dotenv==1.2.2
 
 # MCP Client
-fastmcp
-mcp
+fastmcp==3.4.5
+mcp==1.29.0
+
+# HTTP (used by main.py for graph rendering)
+requests==2.34.2

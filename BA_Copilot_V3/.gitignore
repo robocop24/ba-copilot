@@ -1,2 +1,7 @@
+# Runtime state — never commit checkpoints, reports, or the graph PNG
+data/
+output/
+
+*.db
 *.db-shm
 *.db-wal

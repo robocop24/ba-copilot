@@ -71,7 +71,48 @@ python main.py                      # interactive approval prompt
 
 ---
 
-## 📦 Version Comparison
+## � Docker (V3)
+
+Containerizes the full V3 stack (`BA_Copilot_V3` + `BA_MCP_Server` + `observability` +
+`guardrails` + `evaluation_v3`). The `Dockerfile` and `.dockerignore` live at the repo
+root, so build from there.
+
+### Build
+
+```powershell
+docker build -t ba-copilot-root .
+```
+
+> The first build downloads `torch` + `sentence-transformers` + `faiss` (~4 GB of
+> wheels) and can take 10–30+ minutes. Later builds reuse the cached `pip install`
+> layer and finish in seconds — as long as `requirements.txt` is unchanged.
+
+### Run
+
+```powershell
+docker run -it --env-file BA_Copilot_V3/.env `
+  -v "E:/agentic-track/projects/ba-copilot/BA_Copilot_V3/data:/app/BA_Copilot_V3/data" `
+  -v "E:/agentic-track/projects/ba-copilot/BA_Copilot_V3/output:/app/BA_Copilot_V3/output" `
+  -v "E:/agentic-track/projects/ba-copilot/observability/logs:/app/observability/logs" `
+  ba-copilot-root
+```
+
+- `-it` — the workflow pauses for the interactive approval prompt.
+- `--env-file` — injects `DEEPSEEK_API_KEY` at runtime; never baked into the image.
+- `-v` mounts persist **state** on the host (SQLite checkpoints → `data/`, reports +
+  graph PNG → `output/`, logs → `observability/logs/`) while the image stays immutable.
+
+### Notes
+
+- The MCP server runs as an in-container subprocess over **stdio** today. A future
+  change will expose it over HTTP and orchestrate the two services with `docker compose`.
+- First run downloads the `all-MiniLM-L6-v2` embedding model (~90 MB) inside the
+  container — needs internet.
+- `data/`, `output/`, and `logs/` are both git-ignored and docker-ignored.
+
+---
+
+## �📦 Version Comparison
 
 | Feature | V1 | V2 | V3 ⭐ |
 |---|---|---|---|

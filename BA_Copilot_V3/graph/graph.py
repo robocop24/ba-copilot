@@ -44,7 +44,9 @@ from routers.planner_router import planner_router
 from state import BAState
 
 BASE_DIR = Path(__file__).parent.parent
-conn = sqlite3.connect(str(BASE_DIR / 'ba_copilot_v3.db'), check_same_thread=False)
+DATA_DIR = BASE_DIR / "data"
+DATA_DIR.mkdir(exist_ok=True)
+conn = sqlite3.connect(str(DATA_DIR / 'ba_copilot_v3.db'), check_same_thread=False)
 checkpointer = SqliteSaver(conn, serde=_serde)
 
 builder = StateGraph(BAState)

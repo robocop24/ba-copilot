@@ -1,0 +1,31 @@
+# Python
+**/__pycache__/
+**/*.pyc
+**/.venv/
+
+# Secrets
+**/.env
+.env
+
+# Runtime artifacts (don't bake state into the image)
+BA_Copilot_V3/data/
+BA_Copilot_V3/output/
+BA_Copilot_V3/*.db
+BA_Copilot_V3/*.db-shm
+BA_Copilot_V3/*.db-wal
+BA_Copilot_V3/*.png
+observability/logs/
+
+# VCS
+.git/
+
+# Not needed inside the container
+BA_Copilot_V1/
+BA_Copilot_V2/
+evaluation_v1/
+evaluation_v2/
+evaluation_v4/
+tests/
+docs/
+engineering-challenges/
+.vscode/

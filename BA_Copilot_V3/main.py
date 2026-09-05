@@ -112,8 +112,8 @@ def main():
     print(f"\nReport saved to: {report_path}")
 
     try:
-        graph.get_graph().draw_mermaid_png(output_file_path=str(BASE_DIR / "ba_copilot_graph.png"))
-        print("Graph saved to: ba_copilot_graph.png")
+        graph.get_graph().draw_mermaid_png(output_file_path=str(output_dir / "ba_copilot_graph.png"))
+        print("Graph saved to: output/ba_copilot_graph.png")
     except (requests.exceptions.RequestException, ValueError):
         print("⚠️ Could not render graph PNG (network issue — mermaid.ink unreachable)")
 
