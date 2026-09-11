@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+from workflow import run_ba_workflow
 
 
 class GenerateRequest(BaseModel):
@@ -13,8 +14,4 @@ def health():
 
 @app.post("/generate")
 def generate(request:GenerateRequest):
-    return {
-        "status":"success",
-        "trace_id":"...",
-        "report_path":"..."
-        }
+    return run_ba_workflow(request.requirement, approve=lambda msg: True)
