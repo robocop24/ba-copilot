@@ -112,6 +112,40 @@ docker run -it --env-file BA_Copilot_V3/.env `
 
 ---
 
+## ☁️ Deployment (Azure Container Apps)
+
+The FastAPI service is deployed on **Azure Container Apps** (from the Docker image
+`robocop24/ba-copilot-api`).
+
+| | |
+|---|---|
+| **Base URL** | `https://ba-copilot-api.grayisland-e83f7990.centralindia.azurecontainerapps.io` |
+| **Swagger UI** | `<base>/docs` |
+| **Health check** | `GET /health` |
+| **Generate** | `POST /generate` |
+
+### Example
+
+```bash
+curl -X POST "https://ba-copilot-api.grayisland-e83f7990.centralindia.azurecontainerapps.io/generate" \
+  -H "Content-Type: application/json" \
+  -d '{"requirement": "Build a customer portal with login and order tracking."}'
+```
+
+PowerShell equivalent:
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri "https://ba-copilot-api.grayisland-e83f7990.centralindia.azurecontainerapps.io/generate" `
+  -ContentType "application/json" `
+  -Body '{"requirement": "Build a customer portal with login and order tracking."}'
+```
+
+> `/generate` runs the full workflow synchronously and can take a few minutes. The
+> MCP server (RAG) warms up on the first request after a cold start.
+
+---
+
 ## �📦 Version Comparison
 
 | Feature | V1 | V2 | V3 ⭐ |
